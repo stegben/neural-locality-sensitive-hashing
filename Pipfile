@@ -8,6 +8,7 @@ flake8-config-yoctol = "*"
 pytest = "*"
 
 [packages]
+h5py = "*"
 
 [requires]
 python_version = "3.7"
