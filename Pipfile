@@ -10,6 +10,8 @@ ipdb = "*"
 
 [packages]
 h5py = "*"
+torch = "*"
+torchvision = "*"
 
 [requires]
 python_version = "3.7"
