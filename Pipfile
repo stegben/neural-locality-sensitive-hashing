@@ -6,6 +6,7 @@ verify_ssl = true
 [dev-packages]
 flake8-config-yoctol = "*"
 pytest = "*"
+ipdb = "*"
 
 [packages]
 h5py = "*"
