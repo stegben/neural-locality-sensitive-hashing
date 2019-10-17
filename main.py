@@ -1,7 +1,7 @@
 import os
 from typing import List
+from datetime import datetime
 import random
-from functools import partial
 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -23,7 +23,11 @@ load_dotenv()
 DATA_PATH = os.environ.get("NLSH_GLOVE_25_PATH")
 K = 10
 HASH_SIZE = 12
-WRITER = SummaryWriter(logdir=os.environ["NLSH_TENSORBOARD_LOG_DIR"])
+LOG_BASE_DIR = os.environ["NLSH_TENSORBOARD_LOG_DIR"]
+RUN_NAME = datetime.now().strftime("%Y%m%d-%H%M%S")
+WRITER = SummaryWriter(logdir=f"{LOG_BASE_DIR}/{RUN_NAME}")
+LAMBDA1 = 1e-1
+
 
 class CandidateDataset(Dataset):
 
@@ -46,8 +50,8 @@ class CandidateDataset(Dataset):
         v1_gpu = self._candidate_vectors_gpu[v1_idx, :]
         v2 = self._candidate_vectors[v2_idx, :]
         v2_gpu = self._candidate_vectors_gpu[v2_idx, :]
-        d1 = 1 - self._distance_func(anchor, v1, dim=0)
-        d2 = 1 - self._distance_func(anchor, v2, dim=0)
+        d1 = self._distance_func(anchor, v1, dim=0)
+        d2 = self._distance_func(anchor, v2, dim=0)
         if d1 > d2:
             return anchor_gpu, v2_gpu, v1_gpu
         return anchor_gpu, v1_gpu, v2_gpu
@@ -78,7 +82,7 @@ class NeuralLocalitySensitiveHashing:
             shuffle=True,
             num_workers=0,
         )
-        optimizer = torch.optim.Adam(self._encoder.parameters())
+        optimizer = torch.optim.Adam(self._encoder.parameters(), lr=1e-5, amsgrad=True)
         triplet_loss = nn.TripletMarginLoss(margin=0.0, p=2)
 
         global_step = 0
@@ -89,21 +93,25 @@ class NeuralLocalitySensitiveHashing:
                 anchor = self._encoder(sampled_batch[0])
                 positive = self._encoder(sampled_batch[1])
                 negative = self._encoder(sampled_batch[2])
-                loss = triplet_loss(anchor, positive, negative)
+                loss = triplet_loss(anchor, positive, negative) \
+                       + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
                 WRITER.add_scalar("training loss", loss, global_step)
                 loss.backward()
                 optimizer.step()
 
                 if i_batch % 10 == 0 and validation_data is not None:
                     self._build_index()
-                    result = self.query(validation_data, k=100)
-                    recall_scores = [calculate_recall(y_true, y_pred) for y_pred, y_true in zip(result, list(ground_truth))]
-                    WRITER.add_scalar("test recall", np.mean(recall_scores), global_step)
+                    result = self.query(validation_data, k=K)
+                    recall_scores = np.mean([
+                        calculate_recall(y_true, y_pred)
+                        for y_pred, y_true in zip(result, list(ground_truth))
+                    ])
+                    WRITER.add_scalar("test recall", recall_scores, global_step)
 
                 # regularize 1: anchor.sum(axis=1) - 0.5 (more uniform)
                 # regularize 2: anchor.pow(2) - 1 (more confident)
         self._build_index()
-    
+
     def _build_index(self):
         indexes = self.hash(self._candidate_vectors_gpu)
         self.index2row = {}
@@ -114,7 +122,7 @@ class NeuralLocalitySensitiveHashing:
                 self.index2row[index].append(idx)
         distribution = [len(idxs) for idxs in self.index2row.values()]
         print(f"Create {len(self.index2row)} indexes, with std {np.std(distribution)}")
-                
+
     def hash(self, query_vectors):
         prob = self._encoder(query_vectors)
         codes = (prob > 0.5).int().tolist()
@@ -129,7 +137,7 @@ class NeuralLocalitySensitiveHashing:
             topk_idxs = self._brutal_distance_sort(candidate_rows, query_vector)[:k]
             result.append(topk_idxs)
         return result
-    
+
     def _brutal_distance_sort(self, candidate_rows, query_vector) -> List[int]:
         # TODO: unittest
         candidate_vectors = self._candidate_vectors_gpu[candidate_rows, :]
@@ -137,15 +145,19 @@ class NeuralLocalitySensitiveHashing:
         return [candidate_rows[idx] for idx in distance.argsort().tolist()]
 
 
+def cosine_distance(v1, v2, dim=-1):
+    return 1 - F.cosine_similarity(v1, v2, dim=dim)
+
+
 def main():
     f_data = h5py.File(DATA_PATH)
     train_data = np.array(f_data['train'])
     test_data = np.array(f_data['test'])
-    ground_truth = np.array(f_data['neighbors'])
+    ground_truth = np.array(f_data['neighbors'])[:, :K]
 
     encoder = Encoder(train_data.shape[1], HASH_SIZE).cuda()
 
-    nlsh = NeuralLocalitySensitiveHashing(encoder, partial(F.cosine_similarity, dim=-1))
+    nlsh = NeuralLocalitySensitiveHashing(encoder, cosine_distance)
 
     nlsh.fit(train_data, test_data, ground_truth)
     import ipdb; ipdb.set_trace()
