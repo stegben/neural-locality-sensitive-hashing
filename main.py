@@ -11,11 +11,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 from tensorboardX import SummaryWriter
 
 from nlsh.networks import Encoder
+from nlsh.datasets import RandomPositive
 
 
 load_dotenv()
@@ -29,35 +30,6 @@ WRITER = SummaryWriter(logdir=f"{LOG_BASE_DIR}/{RUN_NAME}")
 LAMBDA1 = 1e-1
 
 
-class CandidateDataset(Dataset):
-
-    def __init__(self, candidate_vectors, distance_func):
-        self._candidate_vectors = candidate_vectors
-        self._candidate_vectors_gpu = candidate_vectors.cuda()
-        self._distance_func = distance_func
-        self.n_candidates = self._candidate_vectors.shape[0]
-        self.n_dims = self._candidate_vectors.shape[1]
-
-    def __len__(self):
-        return self.n_candidates
-
-    def __getitem__(self, idx: int):
-        v1_idx = random.randint(0, self.n_candidates-1)
-        v2_idx = random.randint(0, self.n_candidates-1)
-        anchor = self._candidate_vectors[idx, :]
-        anchor_gpu = self._candidate_vectors_gpu[idx, :]
-        v1 = self._candidate_vectors[v1_idx, :]
-        v1_gpu = self._candidate_vectors_gpu[v1_idx, :]
-        v2 = self._candidate_vectors[v2_idx, :]
-        v2_gpu = self._candidate_vectors_gpu[v2_idx, :]
-        d1 = self._distance_func(anchor, v1, dim=0)
-        d2 = self._distance_func(anchor, v2, dim=0)
-        if d1 > d2:
-            return anchor_gpu, v2_gpu, v1_gpu
-        return anchor_gpu, v1_gpu, v2_gpu
-
-
-
 def calculate_recall(y_true, y_pred):
     # TODO: unittest
     n_true = len(y_true)
@@ -67,7 +39,7 @@ def calculate_recall(y_true, y_pred):
 
 class NeuralLocalitySensitiveHashing:
 
-    def __init__(self, encoder, distance_func):
+    def __init__(self, encoder, dataset ,distance_func):
         self._encoder = encoder
         self._distance_func = distance_func
 
@@ -75,14 +47,19 @@ class NeuralLocalitySensitiveHashing:
         self._candidate_vectors = torch.from_numpy(candidate_vectors)
         validation_data = torch.from_numpy(validation_data).cuda()
         self._candidate_vectors_gpu = torch.from_numpy(candidate_vectors).cuda()
-        dataset = CandidateDataset(self._candidate_vectors, self._distance_func)
+        dataset = RandomPositive(self._candidate_vectors, self._distance_func)
         dataloader = DataLoader(
             dataset,
             batch_size=128,
             shuffle=True,
-            num_workers=0,
+            num_workers=4,
+            pin_memory=True,
         )
-        optimizer = torch.optim.Adam(self._encoder.parameters(), lr=1e-5, amsgrad=True)
+        optimizer = torch.optim.Adam(
+            self._encoder.parameters(),
+            lr=1e-5,
+            amsgrad=True,
+        )
         triplet_loss = nn.TripletMarginLoss(margin=0.0, p=2)
 
         global_step = 0
@@ -154,7 +131,7 @@ def main():
     train_data = np.array(f_data['train'])
     test_data = np.array(f_data['test'])
     ground_truth = np.array(f_data['neighbors'])[:, :K]
-
+    import ipdb; ipdb.set_trace()
     encoder = Encoder(train_data.shape[1], HASH_SIZE).cuda()
 
     nlsh = NeuralLocalitySensitiveHashing(encoder, cosine_distance)
