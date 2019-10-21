@@ -16,7 +16,7 @@ DATA_PATHS = {
     "glove_200": os.environ.get("NLSH_GLOVE_200_PATH"),
     # TODO: sift
 }
-BATCH_SIZE = 2048 * 128
+BATCH_SIZE = 2048 * 512
 
 
 def self_get_knn_numpy_cosine(vectors, k=1000, batch_size=BATCH_SIZE):
@@ -38,7 +38,7 @@ def self_get_knn_numpy_cosine(vectors, k=1000, batch_size=BATCH_SIZE):
     return knn
 
 
-def self_get_knn_tf_cosine(vectors, k=1000, batch_size=BATCH_SIZE):
+def self_get_knn_tf_cosine(vectors, k=1000, batch_size=64):
     n = vectors.shape[0]
     dim = vectors.shape[1]
     knn = np.zeros((n, k), dtype=int)
@@ -50,45 +50,28 @@ def self_get_knn_tf_cosine(vectors, k=1000, batch_size=BATCH_SIZE):
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config, graph=graph)
 
-    def vector_gen():
-        # for batch_idx in range((n // batch_size + 1)):
-        #     start = batch_idx * batch_size
-        #     end = (batch_idx + 1) * batch_size
-        #     batch_vector = vectors[start:end, :]
-        #     yield batch_vector
-        for idx in range(n):
-            return vectors[idx, :]
-
     with sess.graph.as_default():
-        target_place = tf.placeholder(tf.float32, [dim])
-        dataset = tf.data.Dataset.from_generator(
-            vector_gen,
-            tf.float32,
-            tf.TensorShape([dim]),
-        ).batch(batch_size).prefetch(1)
-        iterator = dataset.make_initializable_iterator()
-        candidate_vectors = iterator.get_next()
-        cosine_distance = tf.losses.cosine_distance(
-            tf.transpose(target_place),
+        target_place = tf.placeholder(tf.float32, [batch_size, dim])
+        candidate_vectors = tf.constant(vectors)
+        inner_products = tf.tensordot(
             candidate_vectors,
-            axis=-1,
-            reduction=tf.losses.Reduction.NONE,
+            tf.transpose(target_place),
+            axes=1,
         )
+        target_norm = tf.norm(target_place, axis=1)
+        candidate_norm = tf.norm(candidate_vectors, axis=1)
+        norm_mult = tf.tensordot(target_norm, candidate_norm, axes=0)
+        cosine_similarity = tf.transpose(inner_products) / norm_mult
+        cosine_distance = 1 - cosine_similarity
+        top_k = tf.slice(tf.argsort(cosine_distance), begin=[0, 0], size=[-1, k])
 
-
-    for idx in tqdm(range(n)):
-        target = vectors[idx, :]
-        sess.run(iterator.initializer)
-        start = 0
-        while True:
-            try:
-                distance = sess.run(cosine_distance, {target_place: target})
-                end = start + distance.shape[0]
-                distance_buffer[start:end] = distance
-                start = end
-            except tf.errors.OutOfRangeError:
-                break
-        knn[idx, :] = np.argpartition(distance_buffer, k)[:k]
+    for batch_idx in tqdm(range((n // batch_size + 1))):
+        start = batch_idx * batch_size
+        end = (batch_idx + 1) * batch_size
+        target = vectors[start:end, :]
+        # distance = sess.run(cosine_distance, {target_place: target})
+        # knn[start:end, :] = np.argpartition(distance, k, axis=-1)[:, :k]
+        knn[start:end, :] = sess.run(top_k, {target_place: target})
     return knn
 
 
