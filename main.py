@@ -39,15 +39,16 @@ def calculate_recall(y_true, y_pred):
 
 class NeuralLocalitySensitiveHashing:
 
-    def __init__(self, encoder, dataset ,distance_func):
+    def __init__(self, encoder, distance_func, dataset_cls):
         self._encoder = encoder
         self._distance_func = distance_func
+        self._dataset_cls = dataset_cls
 
     def fit(self, candidate_vectors, validation_data=None, ground_truth=None):
         self._candidate_vectors = torch.from_numpy(candidate_vectors)
         validation_data = torch.from_numpy(validation_data).cuda()
         self._candidate_vectors_gpu = torch.from_numpy(candidate_vectors).cuda()
-        dataset = RandomPositive(self._candidate_vectors, self._distance_func)
+        dataset = self._dataset_cls(self._candidate_vectors, self._distance_func)
         dataloader = DataLoader(
             dataset,
             batch_size=128,
@@ -85,8 +86,7 @@ class NeuralLocalitySensitiveHashing:
                     ])
                     WRITER.add_scalar("test recall", recall_scores, global_step)
 
-                # regularize 1: anchor.sum(axis=1) - 0.5 (more uniform)
-                # regularize 2: anchor.pow(2) - 1 (more confident)
+                # NOTE: possible regularize method: anchor.pow(2) - 1 (more confident)
         self._build_index()
 
     def _build_index(self):
@@ -131,6 +131,8 @@ def main():
     train_data = np.array(f_data['train'])
     test_data = np.array(f_data['test'])
     ground_truth = np.array(f_data['neighbors'])[:, :K]
+    train_knn = np.array(f_data['train_knn'])
+
     import ipdb; ipdb.set_trace()
     encoder = Encoder(train_data.shape[1], HASH_SIZE).cuda()
 
