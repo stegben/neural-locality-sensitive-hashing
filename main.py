@@ -11,23 +11,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from tensorboardX import SummaryWriter
 
 from nlsh.networks import Encoder
-from nlsh.datasets import RandomPositive
 
 
 load_dotenv()
 
-DATA_PATH = os.environ.get("NLSH_GLOVE_25_PATH")
+DATA_PATH = os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH")
 K = 10
 HASH_SIZE = 12
 LOG_BASE_DIR = os.environ["NLSH_TENSORBOARD_LOG_DIR"]
 RUN_NAME = datetime.now().strftime("%Y%m%d-%H%M%S")
 WRITER = SummaryWriter(logdir=f"{LOG_BASE_DIR}/{RUN_NAME}")
-LAMBDA1 = 1e-1
+LAMBDA1 = 1e-2
 
 
 def calculate_recall(y_true, y_pred):
@@ -36,54 +35,106 @@ def calculate_recall(y_true, y_pred):
     true_positives = len(set(y_true) & set(y_pred))
     return true_positives / n_true
 
+class KNearestNeighborPositive(Dataset):
+
+    def __init__(
+            self,
+            candidate_vectors,
+            candidate_self_knn,
+            k=None,
+        ):
+        self._candidate_vectors = candidate_vectors
+        self._candidate_self_knn = candidate_self_knn
+
+        self.k = k or candidate_self_knn.shape[1]
+        self.n_candidates = self._candidate_vectors.shape[0]
+
+    def __len__(self):
+        return self.n_candidates
+
+    def __getitem__(self, idx: int):
+        anchor = self._candidate_vectors[idx, :]
+
+        # positive sample from _candidate_self_knn
+        pre_v1_idx = random.randint(0, self.k - 1)
+        v1_idx = self._candidate_self_knn[idx, pre_v1_idx]
+
+        # negative sample randomly select from the dataset
+        v2_idx = random.randint(0, self.n_candidates - 1)
+
+        v1 = self._candidate_vectors[v1_idx, :]
+        v2 = self._candidate_vectors[v2_idx, :]
+        return anchor, v1, v2
 
 class NeuralLocalitySensitiveHashing:
 
-    def __init__(self, encoder, distance_func, dataset_cls):
+    def __init__(self, encoder, distance_func):
         self._encoder = encoder
         self._distance_func = distance_func
-        self._dataset_cls = dataset_cls
 
-    def fit(self, candidate_vectors, validation_data=None, ground_truth=None):
+    def fit(
+            self,
+            candidate_vectors,
+            candidate_self_knn,
+            validation_data=None,
+            ground_truth=None,
+        ):
         self._candidate_vectors = torch.from_numpy(candidate_vectors)
-        validation_data = torch.from_numpy(validation_data).cuda()
+        validation_data = torch.from_numpy(validation_data)
+        validation_data_gpu = validation_data.cuda()
         self._candidate_vectors_gpu = torch.from_numpy(candidate_vectors).cuda()
-        dataset = self._dataset_cls(self._candidate_vectors, self._distance_func)
+        print("Pre-calculate train/test distance")
+        self._precalculate_distances = self._distance_func(
+            validation_data,
+            self._candidate_vectors,
+        )
+        dataset = KNearestNeighborPositive(
+            self._candidate_vectors,
+            candidate_self_knn,
+        )
         dataloader = DataLoader(
             dataset,
-            batch_size=128,
+            batch_size=1024,
             shuffle=True,
-            num_workers=4,
+            num_workers=0,
             pin_memory=True,
         )
         optimizer = torch.optim.Adam(
             self._encoder.parameters(),
-            lr=1e-5,
+            lr=1e-4,
             amsgrad=True,
         )
         triplet_loss = nn.TripletMarginLoss(margin=0.0, p=2)
 
         global_step = 0
-        for i_epoch in range(10):
+        for _ in range(100):
             for i_batch, sampled_batch in enumerate(dataloader):
                 global_step += 1
                 optimizer.zero_grad()
-                anchor = self._encoder(sampled_batch[0])
-                positive = self._encoder(sampled_batch[1])
-                negative = self._encoder(sampled_batch[2])
+                anchor = self._encoder(sampled_batch[0].cuda())
+                positive = self._encoder(sampled_batch[1].cuda())
+                negative = self._encoder(sampled_batch[2].cuda())
                 loss = triplet_loss(anchor, positive, negative) \
                        + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
                 WRITER.add_scalar("training loss", loss, global_step)
                 loss.backward()
                 optimizer.step()
-
-                if i_batch % 10 == 0 and validation_data is not None:
+                # 715 MB
+                if i_batch % 100 == 0:
+                    # import cProfile, pstats, io
+                    # pr = cProfile.Profile()
+                    # pr.enable()
                     self._build_index()
-                    result = self.query(validation_data, k=K)
+                    # 5500Mb
+                    # TODO: fix the memory usage
+                    result = self.query(validation_data_gpu, k=K)
                     recall_scores = np.mean([
                         calculate_recall(y_true, y_pred)
                         for y_pred, y_true in zip(result, list(ground_truth))
                     ])
+                    # pr.disable()
+                    # pstats.Stats(pr).sort_stats('tottime').print_stats(5)
+                    # import ipdb; ipdb.set_trace()
                     WRITER.add_scalar("test recall", recall_scores, global_step)
 
                 # NOTE: possible regularize method: anchor.pow(2) - 1 (more confident)
@@ -104,26 +155,33 @@ class NeuralLocalitySensitiveHashing:
         prob = self._encoder(query_vectors)
         codes = (prob > 0.5).int().tolist()
         return [''.join(str(c) for c in binarr) for binarr in codes]
+        # TODO this hash function time dominate at later epochs
 
     def query(self, query_vectors, k=10):
         query_indexes = self.hash(query_vectors)
         result = []
         for idx, qi in enumerate(tqdm(query_indexes)):
-            query_vector = query_vectors[idx, :]
             candidate_rows = self.index2row.get(qi, [])
-            topk_idxs = self._brutal_distance_sort(candidate_rows, query_vector)[:k]
+            # TODO: too slow, possibly because create different size vector every loop
+            topk_idxs = self._precalculate_distances[idx, candidate_rows].argsort()[:k]
+            topk_idxs = [candidate_rows[i] for i in topk_idxs]
             result.append(topk_idxs)
         return result
 
-    def _brutal_distance_sort(self, candidate_rows, query_vector) -> List[int]:
-        # TODO: unittest
-        candidate_vectors = self._candidate_vectors_gpu[candidate_rows, :]
-        distance = self._distance_func(candidate_vectors, query_vector, dim=-1)
-        return [candidate_rows[idx] for idx in distance.argsort().tolist()]
 
+def pairwise_cosine_distance(v1, v2, dim=-1):
+    """Cosine distance betwenn 2 matrix
 
-def cosine_distance(v1, v2, dim=-1):
-    return 1 - F.cosine_similarity(v1, v2, dim=dim)
+    v1: (n, d)
+    v2: (m, d)
+
+    Returns
+    D: (n, m) where D[i, j] is the distance between v1[i, :] and v2[j, :]
+    """
+    v1_normalized = v1 / v1.norm(dim=1)[:, None]
+    v2_normalized = v2 / v2.norm(dim=1)[:, None]
+    cosine_similarity = torch.mm(v1_normalized, v2_normalized.T)
+    return 1 - cosine_similarity
 
 
 def main():
@@ -132,13 +190,12 @@ def main():
     test_data = np.array(f_data['test'])
     ground_truth = np.array(f_data['neighbors'])[:, :K]
     train_knn = np.array(f_data['train_knn'])
-
-    import ipdb; ipdb.set_trace()
+    f_data.close()
     encoder = Encoder(train_data.shape[1], HASH_SIZE).cuda()
 
-    nlsh = NeuralLocalitySensitiveHashing(encoder, cosine_distance)
+    nlsh = NeuralLocalitySensitiveHashing(encoder, pairwise_cosine_distance)
 
-    nlsh.fit(train_data, test_data, ground_truth)
+    nlsh.fit(train_data, train_knn, test_data, ground_truth)
     import ipdb; ipdb.set_trace()
 
 
