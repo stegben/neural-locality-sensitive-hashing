@@ -51,7 +51,7 @@ def self_get_knn_tf_cosine(vectors, k=1000, batch_size=64):
     sess = tf.Session(config=config, graph=graph)
 
     with sess.graph.as_default():
-        target_place = tf.placeholder(tf.float32, [batch_size, dim])
+        target_place = tf.placeholder(tf.float32, [None, dim])
         candidate_vectors = tf.constant(vectors)
         inner_products = tf.tensordot(
             candidate_vectors,
