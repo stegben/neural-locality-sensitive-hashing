@@ -24,7 +24,8 @@ DATA_PATH = os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH")
 K = 10
 HASH_SIZE = 12
 LOG_BASE_DIR = os.environ["NLSH_TENSORBOARD_LOG_DIR"]
-RUN_NAME = datetime.now().strftime("%Y%m%d-%H%M%S")
+RUN_TIME = datetime.now().strftime("%Y%m%d-%H%M%S")
+RUN_NAME = f"{K}_{HASH_SIZE}_siamese_{RUN_TIME}"
 WRITER = SummaryWriter(logdir=f"{LOG_BASE_DIR}/{RUN_NAME}")
 LAMBDA1 = 1e-2
 
@@ -66,6 +67,50 @@ class KNearestNeighborPositive(Dataset):
         v2 = self._candidate_vectors[v2_idx, :]
         return anchor, v1, v2
 
+
+class KNearestNeighborPositiveSiamese(Dataset):
+
+    def __init__(
+            self,
+            candidate_vectors,
+            candidate_self_knn,
+            k=None,
+            positive_rate=0.1,
+        ):
+        self._candidate_vectors = candidate_vectors
+        self._candidate_self_knn = candidate_self_knn
+        self._positive_rate = positive_rate
+
+        self.k = k or candidate_self_knn.shape[1]
+        self.n_candidates = self._candidate_vectors.shape[0]
+
+    def __len__(self):
+        return self.n_candidates
+
+    def __getitem__(self, idx: int):
+        anchor = self._candidate_vectors[idx, :]
+
+        if random.random() < self._positive_rate:
+            # positive sample from _candidate_self_knn
+            pre_v_idx = random.randint(0, self.k - 1)
+            v_idx = self._candidate_self_knn[idx, pre_v_idx]
+            label = 1
+        else:
+            # negative sample randomly select from the dataset
+            v_idx = random.randint(0, self.n_candidates - 1)
+            label = 0
+
+        v = self._candidate_vectors[v_idx, :]
+        return anchor, v, label
+
+
+def contrastive_loss(anchor, target, label, margin=0.1):
+    d = F.pairwise_distance(anchor, target)
+    positive_loss = label * d**2
+    negative_loss = (1 - label) * torch.clamp(d - margin, max=0)**2
+    return torch.mean(positive_loss + negative_loss) / 2
+
+
 class NeuralLocalitySensitiveHashing:
 
     def __init__(self, encoder, distance_func):
@@ -88,9 +133,16 @@ class NeuralLocalitySensitiveHashing:
             validation_data,
             self._candidate_vectors,
         )
-        dataset = KNearestNeighborPositive(
+        # dataset = KNearestNeighborPositive(
+        #     self._candidate_vectors,
+        #     candidate_self_knn,
+        #     k=100,
+        # )
+        dataset = KNearestNeighborPositiveSiamese(
             self._candidate_vectors,
             candidate_self_knn,
+            k=100,
+            positive_rate=0.1,
         )
         dataloader = DataLoader(
             dataset,
@@ -101,20 +153,25 @@ class NeuralLocalitySensitiveHashing:
         )
         optimizer = torch.optim.Adam(
             self._encoder.parameters(),
-            lr=1e-4,
+            lr=3e-4,
             amsgrad=True,
         )
-        triplet_loss = nn.TripletMarginLoss(margin=0.0, p=2)
+        # metric_loss = nn.TripletMarginLoss(margin=0.0, p=2)
+        metric_loss = contrastive_loss
 
         global_step = 0
-        for _ in range(100):
+        for _ in range(10000):
             for i_batch, sampled_batch in enumerate(dataloader):
                 global_step += 1
                 optimizer.zero_grad()
                 anchor = self._encoder(sampled_batch[0].cuda())
-                positive = self._encoder(sampled_batch[1].cuda())
-                negative = self._encoder(sampled_batch[2].cuda())
-                loss = triplet_loss(anchor, positive, negative) \
+                # positive = self._encoder(sampled_batch[1].cuda())
+                # negative = self._encoder(sampled_batch[2].cuda())
+                target = self._encoder(sampled_batch[1].cuda())
+                label = sampled_batch[2].cuda()
+                # loss = metric_loss(anchor, positive, negative) \
+                #        + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
+                loss = contrastive_loss(anchor, target, label) \
                        + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
                 WRITER.add_scalar("training loss", loss, global_step)
                 loss.backward()
