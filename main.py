@@ -27,7 +27,7 @@ LOG_BASE_DIR = os.environ["NLSH_TENSORBOARD_LOG_DIR"]
 RUN_TIME = datetime.now().strftime("%Y%m%d-%H%M%S")
 RUN_NAME = f"{K}_{HASH_SIZE}_siamese_{RUN_TIME}"
 WRITER = SummaryWriter(logdir=f"{LOG_BASE_DIR}/{RUN_NAME}")
-LAMBDA1 = 1e-2
+LAMBDA1 = 2e-2
 
 
 def calculate_recall(y_true, y_pred):
@@ -133,17 +133,17 @@ class NeuralLocalitySensitiveHashing:
             validation_data,
             self._candidate_vectors,
         )
-        # dataset = KNearestNeighborPositive(
-        #     self._candidate_vectors,
-        #     candidate_self_knn,
-        #     k=100,
-        # )
-        dataset = KNearestNeighborPositiveSiamese(
+        dataset = KNearestNeighborPositive(
             self._candidate_vectors,
             candidate_self_knn,
             k=100,
-            positive_rate=0.1,
         )
+        # dataset = KNearestNeighborPositiveSiamese(
+        #     self._candidate_vectors,
+        #     candidate_self_knn,
+        #     k=100,
+        #     positive_rate=0.1,
+        # )
         dataloader = DataLoader(
             dataset,
             batch_size=1024,
@@ -156,8 +156,8 @@ class NeuralLocalitySensitiveHashing:
             lr=3e-4,
             amsgrad=True,
         )
-        # metric_loss = nn.TripletMarginLoss(margin=0.0, p=2)
-        metric_loss = contrastive_loss
+        metric_loss = nn.TripletMarginLoss(margin=1.0, p=2)
+        # metric_loss = contrastive_loss
 
         global_step = 0
         for _ in range(10000):
@@ -165,14 +165,14 @@ class NeuralLocalitySensitiveHashing:
                 global_step += 1
                 optimizer.zero_grad()
                 anchor = self._encoder(sampled_batch[0].cuda())
-                # positive = self._encoder(sampled_batch[1].cuda())
-                # negative = self._encoder(sampled_batch[2].cuda())
-                target = self._encoder(sampled_batch[1].cuda())
-                label = sampled_batch[2].cuda()
-                # loss = metric_loss(anchor, positive, negative) \
-                #        + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
-                loss = contrastive_loss(anchor, target, label) \
+                positive = self._encoder(sampled_batch[1].cuda())
+                negative = self._encoder(sampled_batch[2].cuda())
+                # target = self._encoder(sampled_batch[1].cuda())
+                # label = sampled_batch[2].cuda()
+                loss = metric_loss(anchor, positive, negative) \
                        + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
+                # loss = contrastive_loss(anchor, target, label) \
+                #        + LAMBDA1 * ((0.5 - anchor.mean(0))**2).mean()
                 WRITER.add_scalar("training loss", loss, global_step)
                 loss.backward()
                 optimizer.step()
