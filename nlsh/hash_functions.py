@@ -17,6 +17,9 @@ class MultivariateBernoulli(nn.Module):
         x = F.sigmoid(self.output_layer(x))
         return x
 
+    def distance(self,):
+        pass
+
 
 class Categorical(nn.Module):
 
@@ -28,10 +31,11 @@ class Categorical(nn.Module):
         self.output_layer = nn.Linear(256, output_size)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.softmax(self.output_layer(x))
-        return x
+        prob = F.relu(self.fc1(x))
+        prob = F.relu(self.fc2(prob))
+        prob = F.softmax(self.output_layer(prob))
+        return prob
 
-
-Encoder = MultivariateBernoulli
+    def hash(self, x):
+        prob = self.forward(x)
+        return prob.argmax(axis=1)
