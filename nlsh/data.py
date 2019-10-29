@@ -20,6 +20,7 @@ class Glove:
         except KeyError:
             # TODO: precompute knn here. For now, call `python precompute.py {data_name}`
             pass
+        self.f.close()
         self._prepared = True
 
     def _check_prepared(self):
