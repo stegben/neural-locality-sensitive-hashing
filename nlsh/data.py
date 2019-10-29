@@ -47,7 +47,7 @@ class Glove:
         return self._training_self_knn
 
     @staticmethod
-    def pairwise_distance(p1, p2):
+    def pairwise_distance(v1, v2):
         """Cosine distance betwenn 2 matrix
 
         v1: (n, d)
