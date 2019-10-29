@@ -15,8 +15,7 @@ torchvision = "*"
 python-dotenv = "*"
 tensorboardx = "*"
 tqdm = "*"
-tensorflow-gpu = "==1.15.0"
-tensorflow = "==1.10.0"
+tensorflow-gpu = "==1.14.0"
 
 [requires]
-python_version = "3.7"
+python_version = "3.6"
