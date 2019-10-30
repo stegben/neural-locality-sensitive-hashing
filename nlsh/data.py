@@ -4,11 +4,12 @@ import h5py
 import torch
 import numpy as np
 
-
+# TODO: unify member type and pairwise_distance library
 class Glove:
 
     def __init__(self, path):
         self.f = h5py.File(path, "r")
+        # TODO: retry 3 times, wait for 5 sec each time
         self._prepared = False
 
     def load(self):
