@@ -29,6 +29,10 @@ class Glove:
             raise ValueError(f"{self.__class__.__name__} is not prepared. call `load` beforehand.")
 
     @property
+    def prepared(self):
+        return self._prepared
+
+    @property
     def training(self):
         self._check_prepared()
         return self._training
