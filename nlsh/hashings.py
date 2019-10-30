@@ -63,22 +63,46 @@ class MultivariateBernoulli:
 
 class Categorical(nn.Module):
 
-    def __init__(self, input_dim: int, hash_size: int):
-        super().__init__()
-        output_size = 2 ** hash_size
-        self.fc1 = nn.Linear(input_dim, 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.output_layer = nn.Linear(256, output_size)
+    class _Hasher(nn.Module):
 
-    def forward(self, x):
-        prob = F.relu(self.fc1(x))
-        prob = F.relu(self.fc2(prob))
-        prob = F.softmax(self.output_layer(prob))
-        return prob
+        def __init__(self, encoder, hash_size):
+            super().__init__()
+            self._encoder = encoder
+            self.output_layer = nn.Linear(encoder.output_dim, hash_size)
 
-    def hash(self, x):
-        prob = self.forward(x)
-        return prob.argmax(axis=1)
+        def forward(self, x):
+            prob = self._encoder(x)
+            prob = F.softmax(self.output_layer(prob))
+            return prob
+
+    def __init__(self, encoder, hash_size, distance_func):
+        self._encoder = encoder
+        self._hash_size = hash_size
+        self._distance_func = distance_func
+
+        self._hasher = self._Hasher(self._encoder, self._hash_size)
+
+    def predict(self, x):
+        return self._hasher(x)
 
     def distance(self, y1, y2):
         return self._distance_func(y1, y2)
+
+    def parameters(self):
+        return self._hasher.parameters()
+
+    def save(self, base_name):
+        scripted_model_cpu = torch.jit.script(self._hasher.cpu())
+        torch.jit.save(scripted_model_cpu, base_name+"_cpu.pt")
+        scripted_model_gpu = torch.jit.script(self._hasher.cuda())
+        torch.jit.save(scripted_model_gpu, base_name+"_gpu.pt")
+
+    def hash(self, query_vectors):
+        probs = self._hasher(query_vectors)
+        return probs.argmax(axis=1).tolist()
+
+    def hash_sample(self, query_vectors, sample_size=10):
+        # probs = self._hasher(query_vectors)
+        # TODO: sampling hash. The larger the sample size,
+        # the better recall should be
+        pass
