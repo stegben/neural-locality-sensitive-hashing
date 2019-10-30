@@ -6,6 +6,10 @@ class NullLogger:
     def __init__(self):
         pass
 
+    @property
+    def run_name(self):
+        return "Null"
+
     def meta(self, *args, **kwargs):
         pass
 
@@ -15,9 +19,10 @@ class NullLogger:
 
 class TensorboardX:
 
-    def __init__(self, logdir):
+    def __init__(self, logdir, run_name):
         self._logdir = logdir
         self._writer = SummaryWriter(logdir=logdir)
+        self.run_name = run_name
 
     def meta(self, *args, **kwargs):
         pass
@@ -31,6 +36,10 @@ class CometML:
     def __init__(self):
         pass
 
+    @property
+    def run_name(self):
+        return "Null"
+
     def meta(self, *args, **kwargs):
         pass
 
@@ -42,6 +51,10 @@ class WanDB:
 
     def __init__(self):
         pass
+
+    @property
+    def run_name(self):
+        return "Null"
 
     def meta(self, *args, **kwargs):
         pass
