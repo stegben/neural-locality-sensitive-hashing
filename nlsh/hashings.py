@@ -23,7 +23,7 @@ class MultivariateBernoulli:
         self._hash_size = hash_size
         self._distance_func = distance_func
 
-        self._hasher = self._Hasher(self._encoder, self._hash_size)
+        self._hasher = self._Hasher(self._encoder, self._hash_size).cuda()
 
     def predict(self, x):
         return self._hasher(x)
@@ -80,7 +80,7 @@ class Categorical(nn.Module):
         self._hash_size = hash_size
         self._distance_func = distance_func
 
-        self._hasher = self._Hasher(self._encoder, self._hash_size)
+        self._hasher = self._Hasher(self._encoder, self._hash_size).cuda()
 
     def predict(self, x):
         return self._hasher(x)
