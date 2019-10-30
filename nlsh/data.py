@@ -4,6 +4,7 @@ import h5py
 import torch
 import numpy as np
 
+
 # TODO: unify member type and pairwise_distance library
 class Glove:
 
@@ -22,6 +23,8 @@ class Glove:
             # TODO: precompute knn here. For now, call `python precompute.py {data_name}`
             pass
         self.f.close()
+
+        self._dim = self._training.shape[1]
         self._prepared = True
 
     def _check_prepared(self):
@@ -31,6 +34,11 @@ class Glove:
     @property
     def prepared(self):
         return self._prepared
+
+    @property
+    def dim(self):
+        self._check_prepared()
+        return self._dim
 
     @property
     def training(self):
