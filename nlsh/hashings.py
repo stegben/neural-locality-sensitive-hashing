@@ -61,7 +61,7 @@ class MultivariateBernoulli:
         pass
 
 
-class Categorical(nn.Module):
+class Categorical:
 
     class _Hasher(nn.Module):
 
