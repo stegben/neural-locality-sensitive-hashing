@@ -41,7 +41,7 @@ class TripletTrainer:
         candidate_vectors = self._data.training
         validation_data = self._data.testing
         candidate_self_knn = self._data.training_self_knn
-        ground_truth = self._data.ground_truth
+        ground_truth = self._data.ground_truth[:, :K]
 
         self._candidate_vectors = torch.from_numpy(candidate_vectors)
         validation_data = torch.from_numpy(validation_data)
@@ -93,7 +93,7 @@ class TripletTrainer:
                 loss.backward()
                 optimizer.step()
                 # 715 MB
-                if i_batch % 100 == 0:
+                if i_batch % 1000 == 0:
                     # import cProfile, pstats, io
                     # pr = cProfile.Profile()
                     # pr.enable()
