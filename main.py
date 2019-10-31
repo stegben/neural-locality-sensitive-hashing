@@ -24,6 +24,7 @@ DATA_PATH = os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH")
 K = 10
 HASH_SIZE = 12
 LOG_BASE_DIR = os.environ["NLSH_TENSORBOARD_LOG_DIR"]
+MODEL_SAVE_DIR = os.environ["NLSH_MODEL_SAVE_DIR"]
 RUN_TIME = datetime.now().strftime("%Y%m%d-%H%M%S")
 RUN_NAME = f"{K}_{HASH_SIZE}_siamese_{RUN_TIME}"
 WRITER = SummaryWriter(logdir=f"{LOG_BASE_DIR}/{RUN_NAME}")
@@ -160,6 +161,7 @@ class NeuralLocalitySensitiveHashing:
         # metric_loss = contrastive_loss
 
         global_step = 0
+        best_recall_scores = 0.
         for _ in range(10000):
             for i_batch, sampled_batch in enumerate(dataloader):
                 global_step += 1
@@ -177,7 +179,7 @@ class NeuralLocalitySensitiveHashing:
                 loss.backward()
                 optimizer.step()
                 # 715 MB
-                if i_batch % 100 == 0:
+                if i_batch % 1000 == 0:
                     # import cProfile, pstats, io
                     # pr = cProfile.Profile()
                     # pr.enable()
@@ -189,6 +191,15 @@ class NeuralLocalitySensitiveHashing:
                         calculate_recall(y_true, y_pred)
                         for y_pred, y_true in zip(result, list(ground_truth))
                     ])
+
+                    if recall_scores > best_recall_scores:
+                        base_name = f"{MODEL_SAVE_DIR}/{RUN_NAME}_{global_step}_{recall_scores:.4f}"
+                        scripted_model_cpu = torch.jit.script(self._encoder.cpu())
+                        torch.jit.save(scripted_model_cpu, base_name+"_cpu.pt")
+                        scripted_model_gpu = torch.jit.script(self._encoder.cuda())
+                        torch.jit.save(scripted_model_gpu, base_name+"_gpu.pt")
+
+                        best_recall_scores = recall_scores
                     # pr.disable()
                     # pstats.Stats(pr).sort_stats('tottime').print_stats(5)
                     # import ipdb; ipdb.set_trace()
