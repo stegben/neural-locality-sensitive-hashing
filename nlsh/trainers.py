@@ -1,4 +1,5 @@
 import abc
+from time import time
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -60,23 +61,10 @@ class TripletTrainer:
         self._validation_data = torch.from_numpy(validation_data)
         self._validation_data_gpu = self._validation_data.cuda()
 
-        # # TODO: test if we need to precompute this. It takes 40 GB memory
-        # print("Pre-calculate train/test distance")
-        # self._precalculate_distances = self._data.pairwise_distance(
-        #     validation_data,
-        #     self._candidate_vectors,
-        # )
         dataset = KNearestNeighborTriplet(
             self._candidate_vectors_gpu,
             candidate_self_knn,
             k=100,
-        )
-        dataloader = DataLoader(
-            dataset,
-            batch_size=1024,
-            shuffle=True,
-            num_workers=0,
-            # pin_memory=True,
         )
         optimizer = torch.optim.Adam(
             self._hashing.parameters(),
@@ -87,7 +75,7 @@ class TripletTrainer:
         global_step = 0
         best_recall = 0.
         for _ in range(10000):
-            for i_batch, sampled_batch in enumerate(dataloader):
+            for sampled_batch in dataset.batch_generator(1024, True):
                 global_step += 1
                 optimizer.zero_grad()
                 anchor = self._hashing.predict(sampled_batch[0])
@@ -104,14 +92,14 @@ class TripletTrainer:
                 self._logger.log("training/loss", loss, global_step)
                 loss.backward()
                 optimizer.step()
-                if i_batch % 100 == 0:
-                    import cProfile, pstats, io
-                    pr = cProfile.Profile()
-                    pr.enable()
+                if global_step % 100 == 0:
 
                     self._build_index()
 
+                    t1 = time()
                     result = self.query(self._validation_data_gpu, k=K)
+                    t2 = time()
+                    query_time = t2 - t1
                     current_recall = np.mean([
                         calculate_recall(y_true, y_pred)
                         for y_pred, y_true in zip(result, list(ground_truth))
@@ -121,12 +109,14 @@ class TripletTrainer:
                         base_name = f"{self._model_save_dir}/{self._logger.run_name}_{global_step}_{current_recall:.4f}"
                         self._hashing.save(base_name)
                         best_recall = current_recall
-                    pr.disable()
-                    pstats.Stats(pr).sort_stats('tottime').print_stats(5)
-                    import ipdb; ipdb.set_trace()
-                    self._logger.log("test/recall", current_recall, global_step)
 
-                # NOTE: possible regularize method: anchor.pow(2) - 1 (more confident)
+                    self._logger.log("test/recall", current_recall, global_step)
+                    self._logger.log("test/n_indexes", len(self.index2row), global_step)
+                    distribution = [len(idxs) for idxs in self.index2row.values()]
+                    self._logger.log("test/std_index_rows", np.std(distribution), global_step)
+                    self._logger.log("test/qps", query_time / self._validation_data.shape[0], global_step)
+
+            # NOTE: possible regularize method: anchor.pow(2) - 1 (more confident)
         self._build_index()
 
     def _build_index(self):
@@ -137,17 +127,14 @@ class TripletTrainer:
                 self.index2row[index] = [idx]
             else:
                 self.index2row[index].append(idx)
-        distribution = [len(idxs) for idxs in self.index2row.values()]
-        print(f"Create {len(self.index2row)} indexes, with std {np.std(distribution)}")
+
+        # NOTE: this is a import speed optimization
+        # allocating a new LongTensor is non trivial and will dominate
+        # the evaluation process time
+        for index, rows in self.index2row.items():
+            self.index2row[index] = torch.LongTensor(rows)
 
     def hash(self, query_vectors):
-        # eval_dataset = _EvalDataset(query_vectors)
-        # dl = DataLoader(
-        #     eval_dataset,
-        #     batch_size=1024,
-        #     shuffle=False,
-        #     num_workers=0,
-        # )
         hash_keys = []
 
         n = query_vectors.shape[0]
@@ -157,7 +144,6 @@ class TripletTrainer:
             start = idx * batch_size
             end = (idx + 1) * batch_size
             batch = query_vectors[start:end, :]
-        # for batch in dl:
             hash_key = self._hashing.hash(batch)
             hash_keys += hash_key
         last_batch = query_vectors[n_batches*batch_size:, :]
@@ -168,40 +154,33 @@ class TripletTrainer:
     def query(self, query_vectors, k=10):
         query_indexes = self.hash(query_vectors)
         result = []
-        distance_buffer = torch.rand(self._candidate_vectors.shape[0])
-        for idx, qi in enumerate(tqdm(query_indexes)):
-            candidate_rows = self.index2row.get(qi, [])
-            # TODO: too slow, possibly because create different size vector every loop
-            topk_idxs = self.get_top_k_index(idx, candidate_rows, k, distance_buffer)
-            # topk_idxs = [candidate_rows[i] for i in topk_idxs]
+        vector_buffer = torch.rand(self._candidate_vectors.shape)
+        for idx, qi in enumerate(query_indexes):
+            candidate_rows = self.index2row.get(qi, torch.LongTensor([]))
+
+            n_candidates = len(candidate_rows)
+            target_vector = self._validation_data[idx, :]
+
+            # NOTE: indexing with tensor will create a copy
+            # use index_select will directly move data from one to
+            # another. This highly reduce the memory allocation overhead
+            torch.index_select(
+                self._candidate_vectors,
+                0,
+                candidate_rows,
+                out=vector_buffer[:n_candidates, :],
+            )
+            distance = self._data.distance(
+                target_vector,
+                vector_buffer[:n_candidates, :],
+            )
+            try:
+                topk_idxs = distance.topk(k, largest=False)[1].tolist()
+                topk_idxs = [int(candidate_rows[i]) for i in topk_idxs]
+            except RuntimeError:
+                topk_idxs = candidate_rows
+
             result.append(topk_idxs)
         return result
 
-    def get_top_k_index(self, idx, candidate_rows, k, distance_buffer):
-        # try 1
-        # return self._precalculate_distances[idx, candidate_rows].argsort()[:k]
 
-        # try 2
-        # try:
-        #     topk_idxs = self._precalculate_distances[idx, candidate_rows].topk(k, largest=False)[1].tolist()
-        #     return [candidate_rows[i] for i in topk_idxs]
-        # except RuntimeError:
-        #     return candidate_rows
-
-        # try 3
-        try:
-            n_candidates = len(candidate_rows)
-            target_vector = self._validation_data[[idx], :]
-            # candidate_vectors = self._candidate_vectors.select(0, candidate_rows)
-            # distance = self._data.pairwise_distance(target_vector, candidate_vectors)[:0]
-            import torch.nn.functional as F
-            distance_buffer[:n_candidates] = F.cosine_similarity(
-                target_vector,
-                self._candidate_vectors[:n_candidates, :],
-                dim=-1,
-            )
-            distance_buffer[:n_candidates].mul_(-1).add_(1)
-            topk_idxs = distance_buffer[:n_candidates].topk(k, largest=False)[1].tolist()
-            return [candidate_rows[i] for i in topk_idxs]
-        except RuntimeError:
-            return candidate_rows

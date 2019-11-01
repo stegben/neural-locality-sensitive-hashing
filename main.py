@@ -6,13 +6,13 @@ import random
 from dotenv import load_dotenv
 
 from encoders import TwoLayer256Relu
-from nlsh.hashings import MultivariateBernoulli
+from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove
 from nlsh.loggers import TensorboardX
 from nlsh.trainers import TripletTrainer
 
 from nlsh.learning.datasets import KNearestNeighborTriplet
-from nlsh.learning.distances import L2
+from nlsh.learning.distances import L2, JSD_categorical
 
 load_dotenv()
 
@@ -72,13 +72,14 @@ def main():
     data.load()
     enc = TwoLayer256Relu(input_dim=data.dim).cuda()
     hashing = MultivariateBernoulli(enc, HASH_SIZE, L2)
+    # hashing = Categorical(enc, 2**HASH_SIZE, JSD_categorical)
     logger = TensorboardX(f"{LOG_BASE_DIR}/{RUN_NAME}", RUN_NAME)
 
     nlsh = TripletTrainer(
         hashing,
         data,
         MODEL_SAVE_DIR,
-        logger,
+        logger=None,
         lambda1=0.02,
         triplet_margin=1.0,
     )
