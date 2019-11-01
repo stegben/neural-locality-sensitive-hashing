@@ -2,6 +2,7 @@ from pathlib import Path
 
 import h5py
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -74,6 +75,18 @@ class Glove:
         v2_normalized = v2 / v2.norm(dim=1)[:, None]
         cosine_similarity = torch.mm(v1_normalized, v2_normalized.T)
         return 1 - cosine_similarity
+
+    @staticmethod
+    def distance(v1, v2):
+        """Cosine distance betwenn 2 matrix
+
+        v1: (d)
+        v2: (n, d)
+
+        Returns
+        D: (n) where D[i] is the distance between v1 and v2[i, :]
+        """
+        return 1 - F.cosine_similarity(v1, v2, dim=-1)
 
 
 class SIFT:
