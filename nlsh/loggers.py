@@ -24,8 +24,11 @@ class TensorboardX:
         self._writer = SummaryWriter(logdir=logdir)
         self.run_name = run_name
 
-    def meta(self, *args, **kwargs):
-        pass
+    def args(self, arg_text):
+        self._writer.add_text("args", arg_text)
+
+    def meta(self, params):
+        self._writer.add_hparams(hparam_dict=params, metric_dict={})
 
     def log(self, name, loss, step):
         self._writer.add_scalar(name, loss, step)
