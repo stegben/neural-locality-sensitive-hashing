@@ -79,7 +79,7 @@ def main():
         hashing,
         data,
         MODEL_SAVE_DIR,
-        logger=None,
+        logger=logger,
         lambda1=0.02,
         triplet_margin=1.0,
     )
