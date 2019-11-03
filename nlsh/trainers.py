@@ -48,7 +48,7 @@ class TripletTrainer:
         self._lambda1 = lambda1
         self._triplet_margin = triplet_margin
 
-    def fit(self, K):
+    def fit(self, K, batch_size=1024, learning_rate=3e-4, test_every_updates=1000):
         if not self._data.prepared:
             self._data.load()
         candidate_vectors = self._data.training
@@ -68,14 +68,14 @@ class TripletTrainer:
         )
         optimizer = torch.optim.Adam(
             self._hashing.parameters(),
-            lr=3e-4,
+            lr=learning_rate,
             amsgrad=True,
         )
 
         global_step = 0
         best_recall = 0.
         for _ in range(10000):
-            for sampled_batch in dataset.batch_generator(1024, True):
+            for sampled_batch in dataset.batch_generator(batch_size, True):
                 global_step += 1
                 optimizer.zero_grad()
                 anchor = self._hashing.predict(sampled_batch[0])
@@ -92,7 +92,7 @@ class TripletTrainer:
                 self._logger.log("training/loss", loss, global_step)
                 loss.backward()
                 optimizer.step()
-                if global_step % 100 == 0:
+                if global_step % test_every_updates == 0:
 
                     self._build_index()
 
@@ -111,10 +111,13 @@ class TripletTrainer:
                         best_recall = current_recall
 
                     self._logger.log("test/recall", current_recall, global_step)
-                    self._logger.log("test/n_indexes", len(self.index2row), global_step)
-                    distribution = [len(idxs) for idxs in self.index2row.values()]
-                    self._logger.log("test/std_index_rows", np.std(distribution), global_step)
-                    self._logger.log("test/qps", query_time / self._validation_data.shape[0], global_step)
+
+                    n_indexes = len(self.index2row)
+                    self._logger.log("test/n_indexes", n_indexes, global_step)
+                    std_index_rows = np.std([len(idxs) for idxs in self.index2row.values()])
+                    self._logger.log("test/std_index_rows", std_index_rows, global_step)
+                    qps = self._validation_data.shape[0] / query_time
+                    self._logger.log("test/qps", qps, global_step)
 
             # NOTE: possible regularize method: anchor.pow(2) - 1 (more confident)
         self._build_index()
@@ -134,11 +137,10 @@ class TripletTrainer:
         for index, rows in self.index2row.items():
             self.index2row[index] = torch.LongTensor(rows)
 
-    def hash(self, query_vectors):
+    def hash(self, query_vectors, batch_size=1024):
         hash_keys = []
 
         n = query_vectors.shape[0]
-        batch_size = 1024
         n_batches = n // batch_size
         for idx in range(n_batches):
             start = idx * batch_size
