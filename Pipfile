@@ -16,6 +16,7 @@ python-dotenv = "*"
 tensorboardx = "*"
 tqdm = "*"
 tensorflow-gpu = "==1.14.0"
+comet-ml = "*"
 
 [requires]
 python_version = "3.6"

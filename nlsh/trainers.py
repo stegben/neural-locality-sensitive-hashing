@@ -89,7 +89,7 @@ class TripletTrainer:
                     self._triplet_margin,
                 )
                 loss += self._lambda1  * ((0.5 - anchor.mean(0))**2).mean()
-                self._logger.log("training/loss", loss, global_step)
+                self._logger.log("training/loss", loss.data.cpu(), global_step)
                 loss.backward()
                 optimizer.step()
                 if global_step % test_every_updates == 0:
