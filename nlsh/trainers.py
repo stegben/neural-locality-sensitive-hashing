@@ -74,7 +74,7 @@ class TripletTrainer:
 
         global_step = 0
         best_recall = 0.
-        for _ in range(10000):
+        for _ in range(300):
             for sampled_batch in dataset.batch_generator(batch_size, True):
                 global_step += 1
                 optimizer.zero_grad()
