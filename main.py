@@ -25,6 +25,15 @@ COMET_PROJECT_NAME = os.environ["NLSH_COMET_PROJECT_NAME"]
 COMET_WORKSPACE = os.environ["NLSH_COMET_WORKSPACE"]
 
 
+def get_data_by_id(data_id):
+    id2path = {
+        "glove_25": os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH"),
+        "glove_50": os.environ.get("NLSH_PROCESSED_GLOVE_50_PATH"),
+        "glove_100": os.environ.get("NLSH_PROCESSED_GLOVE_100_PATH"),
+        "glove_200": os.environ.get("NLSH_PROCESSED_GLOVE_200_PATH"),
+    }
+    return Glove(id2path[data_id])
+
 def nlsh_argparse():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -37,6 +46,11 @@ def nlsh_argparse():
         "--hash_size",
         type=int,
         default=12,
+    )
+    parser.add_argument(
+        "--data_id",
+        type=str,
+        choices=("glove_25", "glove_50", "glove_100", "glove_200",),
     )
     parser.add_argument(
         "--log_tag",
@@ -81,7 +95,7 @@ def main():
     learning_rate = args.learning_rate
     batch_size = args.batch_size
 
-    data = Glove(os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH"))
+    data = get_data_by_id(args.data_id)
     data.load()
     enc = TwoLayer256Relu(input_dim=data.dim).cuda()
     hashing = MultivariateBernoulli(enc, hash_size, L2)
@@ -106,6 +120,7 @@ def main():
         'data': "glove 25",
         'k': k,
         'code_distance': "2-norm",
+        'data_id': args.data_id,
     })
     logger.args(' '.join(sys.argv[1:]))
     nlsh = TripletTrainer(
