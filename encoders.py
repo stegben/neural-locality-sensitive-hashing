@@ -20,23 +20,20 @@ class TwoLayer256Relu(nn.Module):
         return x
 
 
-class MultiLayerRelu(nn.Module):
+class MultiLayerRelu(nn.Sequential):
 
     def __init__(self, input_dim, hidden_dims: List[int]):
         super().__init__()
         self._input_dim = input_dim
         self._hidden_dims = hidden_dims
 
-        self.output_dims = hidden_dims[-1]
+        self.output_dim = hidden_dims[-1]
 
-        self.fcs = []
         prev_dim = input_dim
-        for dim in hidden_dims:
-            self.fcs.append(nn.Linear(prev_dim, dim))
+        for layer_idx, dim in enumerate(hidden_dims):
+            self.add_module(f"{layer_idx}_linear", nn.Linear(prev_dim, dim))
+            self.add_module(f"{layer_idx}_relu", nn.ReLU())
             prev_dim = dim
 
     def forward(self, x):
-        output = x
-        for fc in self.fcs:
-            output = F.relu(fc(output))
-        return output
+        return super().forward(x)
