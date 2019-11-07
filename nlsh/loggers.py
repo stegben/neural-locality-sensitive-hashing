@@ -43,7 +43,7 @@ class CometML:
             workspace=workspace,
             disabled=debug,
         )
-        if not self._exp.alive:
+        if not (self._exp.alive or debug):
             raise RuntimeError("Cannot connect to Comet ML")
         self._exp.disable_mp()
 
