@@ -54,12 +54,6 @@ class MultivariateBernoulli:
             hash_results.append(self._binarr_to_int(binarr))
         return hash_results
 
-    def hash_sample(self, query_vectors, sample_size=10):
-        # probs = self._hasher(query_vectors)
-        # TODO: sampling hash. The larger the sample size,
-        # the better recall should be
-        pass
-
 
 class Categorical:
 
@@ -100,9 +94,3 @@ class Categorical:
     def hash(self, query_vectors):
         probs = self._hasher(query_vectors)
         return probs.argmax(axis=1).tolist()
-
-    def hash_sample(self, query_vectors, sample_size=10):
-        # probs = self._hasher(query_vectors)
-        # TODO: sampling hash. The larger the sample size,
-        # the better recall should be
-        pass
