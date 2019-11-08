@@ -188,9 +188,8 @@ def main():
         K=k,
         batch_size=batch_size,
         learning_rate=learning_rate,
+        test_every_updates=300,
     )
-
-    import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':
