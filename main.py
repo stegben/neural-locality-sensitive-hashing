@@ -6,14 +6,17 @@ import random
 
 from dotenv import load_dotenv
 
-from encoders import TwoLayer256Relu
+from encoders import MultiLayerRelu
 from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove
 from nlsh.loggers import TensorboardX, CometML
 from nlsh.trainers import TripletTrainer
 
 from nlsh.learning.datasets import KNearestNeighborTriplet
-from nlsh.learning.distances import L2, JSD_categorical
+from nlsh.learning.distances import (
+    L2,
+    JSD_categorical,
+)
 
 load_dotenv()
 
@@ -34,6 +37,39 @@ def get_data_by_id(data_id):
     }
     return Glove(id2path[data_id])
 
+
+def comma_separate_ints(value):
+    try:
+        str_ints = value.split(",")
+        ints = [int(i) for i in str_ints]
+        return ints
+    except:
+        msg = f"{value} is not a valid encoder structure." \
+               "Should be comma separated integers, e.g. '256,256'"
+        raise argparse.ArgumentTypeError(msg)
+
+
+def hashing_type(value):
+    allowed_hashings = ["Categorical", "MultivariateBernoulli"]
+    if value not in allowed_hashings:
+        msg = f"{value} is not a valid hashing type." \
+              f"Only {', '.join(allowed_hashings)} are allowed"
+        raise argparse.ArgumentTypeError(msg)
+    return value
+
+
+def get_hashing_from_args(args, enc):
+    hashing_type = args.hashing_type
+    if hashing_type == "Categorical":
+        hash_size = int(2 ** args.hash_size)
+        return Categorical(enc, hash_size, JSD_categorical)
+    elif hashing_type == "MultivariateBernoulli":
+        hash_size = args.hash_size
+        return MultivariateBernoulli(enc, hash_size, L2)
+    else:
+        raise RuntimeError(f"{hashing_type} is not a valid hashing type")
+
+
 def nlsh_argparse():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -46,6 +82,18 @@ def nlsh_argparse():
         "--hash_size",
         type=int,
         default=12,
+    )
+    parser.add_argument(
+        "-es",
+        "--encoder_structure",
+        type=comma_separate_ints,
+        default='256,256',
+    )
+    parser.add_argument(
+        "-ht",
+        "--hashing_type",
+        type=str,
+        default='multivariate_bernoulli',
     )
     parser.add_argument(
         "--data_id",
@@ -90,6 +138,7 @@ def main():
     # hyper params
     k = args.k
     hash_size = args.hash_size
+    encoder_structure = args.encoder_structure
     lambda1 = args.lambda1
     triplet_margin = args.triplet_margin
     learning_rate = args.learning_rate
@@ -97,9 +146,11 @@ def main():
 
     data = get_data_by_id(args.data_id)
     data.load()
-    enc = TwoLayer256Relu(input_dim=data.dim).cuda()
-    hashing = MultivariateBernoulli(enc, hash_size, L2)
-    # hashing = Categorical(enc, 2**HASH_SIZE, JSD_categorical)
+    enc = MultiLayerRelu(
+        input_dim=data.dim,
+        hidden_dims=encoder_structure,
+    ).cuda()
+    hashing = get_hashing_from_args(args, enc)
 
     RUN_TIME = datetime.now().strftime("%Y%m%d-%H%M%S")
     if args.log_tag is None:
@@ -113,6 +164,7 @@ def main():
     )
     logger.meta(params={
         'hash_size': hash_size,
+        'encoder_structure': encoder_structure,
         'lambda1': lambda1,
         'triplet_margin': triplet_margin,
         'learning_rate': learning_rate,
