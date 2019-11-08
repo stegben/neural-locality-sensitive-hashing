@@ -18,6 +18,22 @@ def calculate_recall(y_true, y_pred):
     return true_positives / n_true
 
 
+def build_index(indexes):
+    index2row = {}
+    for idx, index in enumerate(indexes):
+        if index not in index2row:
+            index2row[index] = [idx]
+        else:
+            index2row[index].append(idx)
+
+    # NOTE: this is a import speed optimization
+    # allocating a new LongTensor is non trivial and will dominate
+    # the evaluation process time
+    for index, rows in index2row.items():
+        index2row[index] = torch.LongTensor(rows)
+
+    return index2row
+
 class _EvalDataset(Dataset):
 
     def __init__(self, vector):
@@ -124,18 +140,7 @@ class TripletTrainer:
 
     def _build_index(self):
         indexes = self.hash(self._candidate_vectors_gpu)
-        self.index2row = {}
-        for idx, index in enumerate(indexes):
-            if index not in self.index2row:
-                self.index2row[index] = [idx]
-            else:
-                self.index2row[index].append(idx)
-
-        # NOTE: this is a import speed optimization
-        # allocating a new LongTensor is non trivial and will dominate
-        # the evaluation process time
-        for index, rows in self.index2row.items():
-            self.index2row[index] = torch.LongTensor(rows)
+        self.index2row = build_index(indexes)
 
     def hash(self, query_vectors, batch_size=1024):
         hash_keys = []
