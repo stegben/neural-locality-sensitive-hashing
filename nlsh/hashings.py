@@ -15,12 +15,14 @@ class MultivariateBernoulli:
 
         def forward(self, x):
             x = self._encoder(x)
-            x = F.sigmoid(self.output_layer(x))
+            x = torch.sigmoid(self.output_layer(x))
             return x
 
     def __init__(self, encoder, hash_size, distance_func):
         self._encoder = encoder
         self._hash_size = hash_size
+
+        # TODO: refactor. distance_dunc should not be the member of hashings
         self._distance_func = distance_func
 
         self._hasher = self._Hasher(self._encoder, self._hash_size).cuda()
@@ -39,6 +41,7 @@ class MultivariateBernoulli:
         torch.jit.save(scripted_model_cpu, base_name+"_cpu.pt")
         scripted_model_gpu = torch.jit.script(self._hasher.cuda())
         torch.jit.save(scripted_model_gpu, base_name+"_gpu.pt")
+    # TODO: implement a `load` classmethod
 
     def _binarr_to_int(self, binarr):
         out = 0
