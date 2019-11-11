@@ -93,7 +93,7 @@ def nlsh_argparse():
         "-ht",
         "--hashing_type",
         type=str,
-        default='multivariate_bernoulli',
+        default='MultivariateBernoulli',
     )
     parser.add_argument(
         "--data_id",
