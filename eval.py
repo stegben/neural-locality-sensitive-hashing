@@ -61,7 +61,17 @@ def hash_all(hasher, query_vectors):
 
 
 def sample_and_collect(dist, n) -> List[Set]:
-    codes = dist.sample((n,)).int().permute(1, 0, 2).tolist()  # (batch_size, n, code_size)
+    if n == 1:
+        # hard hash
+        codes = (dist.probs > 0.5).unsqueeze_(1).tolist()
+    elif n > 1:
+        # sample hash
+        # (batch_size, n, code_size)
+        base_code = (dist.probs > 0.5).int().unsqueeze_(1)
+        sampled_codes = dist.sample((n - 1,)).int().permute(1, 0, 2)
+        codes = torch.cat((base_code, sampled_codes), dim=1).tolist()
+    else:
+        raise ValueError(f"`n` should be positive integer, but got {n}")
     hash_results = []
     for binarrs in codes:
         hashes = []
@@ -116,12 +126,12 @@ def main():
 
     ground_truth = data.ground_truth[:, :K]
 
-    for n_samples in range(1, 11):
+    for n_samples in range(1, 101):
         test_indexes = sample_and_collect(test_dist, n_samples)
 
         test_indexes_flattened = [qi for qis in test_indexes for qi in list(qis)]
         test_candidate_nums = [index2rownum.get(qi, 0) for qi in test_indexes_flattened]
-        import ipdb; ipdb.set_trace()
+
         result = []
         list_n_candidates = []
         vector_buffer = torch.rand(candidate_vectors.shape)
