@@ -22,7 +22,7 @@ class TwoLayer256Relu(nn.Module):
 
 class MultiLayerRelu(nn.Sequential):
 
-    def __init__(self, input_dim, hidden_dims: List[int]):
+    def __init__(self, input_dim, hidden_dims: List[int], with_batchnorm=False):
         super().__init__()
         self._input_dim = input_dim
         self._hidden_dims = hidden_dims
@@ -32,6 +32,8 @@ class MultiLayerRelu(nn.Sequential):
         prev_dim = input_dim
         for layer_idx, dim in enumerate(hidden_dims):
             self.add_module(f"{layer_idx}_linear", nn.Linear(prev_dim, dim))
+            if with_batchnorm:
+                self.add_module(f"{layer_idx}_batch_norm", nn.BatchNorm1d(dim))
             self.add_module(f"{layer_idx}_relu", nn.ReLU())
             prev_dim = dim
 
