@@ -93,6 +93,8 @@ class TripletTrainer:
         for _ in range(300):
             for sampled_batch in dataset.batch_generator(batch_size, True):
                 global_step += 1
+
+                self._hashing.train_mode(True)
                 optimizer.zero_grad()
                 anchor = self._hashing.predict(sampled_batch[0])
                 positive = self._hashing.predict(sampled_batch[1])
@@ -109,7 +111,7 @@ class TripletTrainer:
                 loss.backward()
                 optimizer.step()
                 if global_step % test_every_updates == 0:
-
+                    self._hashing.train_mode(False)
                     self._build_index()
 
                     t1 = time()

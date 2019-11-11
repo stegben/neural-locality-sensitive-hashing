@@ -43,6 +43,12 @@ class MultivariateBernoulli:
         torch.jit.save(scripted_model_gpu, base_name+"_gpu.pt")
     # TODO: implement a `load` classmethod
 
+    def train_mode(self, on):
+        if on:
+            self._hasher.train()
+        else:
+            self._hasher.eval()
+
     def _binarr_to_int(self, binarr):
         out = 0
         for bit in binarr:
@@ -97,3 +103,9 @@ class Categorical:
     def hash(self, query_vectors):
         probs = self._hasher(query_vectors)
         return probs.argmax(axis=1).tolist()
+
+    def train_mode(self, on):
+        if on:
+            self._hasher.train()
+        else:
+            self._hasher.eval()
