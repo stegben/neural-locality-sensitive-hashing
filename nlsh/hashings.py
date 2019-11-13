@@ -75,7 +75,7 @@ class Categorical:
 
         def forward(self, x):
             prob = self._encoder(x)
-            prob = F.softmax(self.output_layer(prob))
+            prob = F.softmax(self.output_layer(prob), dim=1)
             return prob
 
     def __init__(self, encoder, hash_size, distance_func):
