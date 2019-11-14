@@ -36,7 +36,7 @@ class TensorboardX:
 
 class CometML:
 
-    def __init__(self, api_key, project_name, workspace, debug=True):
+    def __init__(self, api_key, project_name, workspace, debug=True, tags=None):
         self._exp = Experiment(
             api_key=api_key,
             project_name=project_name,
@@ -46,6 +46,9 @@ class CometML:
         if not (self._exp.alive or debug):
             raise RuntimeError("Cannot connect to Comet ML")
         self._exp.disable_mp()
+
+        if tags is not None:
+            self._exp.add_tags(tags)
 
     @property
     def run_name(self):
