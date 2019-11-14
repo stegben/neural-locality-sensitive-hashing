@@ -101,7 +101,7 @@ def nlsh_argparse():
         choices=("glove_25", "glove_50", "glove_100", "glove_200",),
     )
     parser.add_argument(
-        "--log_tag",
+        "--log_tags",
         type=str,
         default=None,
     )
@@ -143,6 +143,8 @@ def main():
     triplet_margin = args.triplet_margin
     learning_rate = args.learning_rate
     batch_size = args.batch_size
+    log_tags = args.log_tags
+    log_tags = log_tags.split(",") if log_tags is not None else None
 
     data = get_data_by_id(args.data_id)
     data.load()
@@ -153,14 +155,14 @@ def main():
     hashing = get_hashing_from_args(args, enc)
 
     RUN_TIME = datetime.now().strftime("%Y%m%d-%H%M%S")
-    if args.log_tag is None:
-        RUN_NAME = f"{int(2**hash_size)}_triplet_{RUN_TIME}"
+    RUN_NAME = f"{int(2**hash_size)}_triplet_{RUN_TIME}"
     # logger = TensorboardX(f"{LOG_BASE_DIR}/{RUN_NAME}", RUN_NAME)
     logger = CometML(
         api_key=COMET_API_KEY,
         project_name=COMET_PROJECT_NAME,
         workspace=COMET_WORKSPACE,
         debug=False,
+        tags=log_tags,
     )
     logger.meta(params={
         'hash_size': hash_size,
