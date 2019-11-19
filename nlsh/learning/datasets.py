@@ -115,3 +115,28 @@ class KNearestNeighborSiamese(Dataset):
 
         v = self._candidate_vectors[v_idx, :]
         return anchor, v, label
+
+
+    def batch_generator(self, batch_size, shuffle=False):
+        n_batches = len(self) // batch_size
+
+        anchor_idxs = np.arange(len(self))
+        if shuffle:
+            np.random.shuffle(anchor_idxs)
+
+        for idx in range(n_batches):
+            start = idx * batch_size
+            end = (idx + 1) * batch_size
+
+            anchor = self._candidate_vectors[anchor_idxs[start:end], :]
+
+            train_k = self._candidate_self_knn.shape[1]
+            ramdomly_selected_positive_idx = np.random.randint(0, train_k, (batch_size,))
+            positive_idxs = self._candidate_self_knn[anchor_idxs[start:end], ramdomly_selected_positive_idx]
+
+            negative_idxs = np.random.randint(0, len(self), (batch_size,))
+
+            label = np.random.random() < self._positive_rate
+            other_idx = positive_idxs * label + negative_idxs * (1 - label)
+            other = self._candidate_vectors[other_idx, :]
+            yield anchor, other, label
