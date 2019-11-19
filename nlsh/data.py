@@ -88,6 +88,14 @@ class Glove:
         """
         return 1 - F.cosine_similarity(v1, v2, dim=-1)
 
-
+# TODO:
 class SIFT:
+    pass
+
+
+class BigANN1B:
+    pass
+
+
+class Deep1B:
     pass
