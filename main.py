@@ -112,6 +112,12 @@ def nlsh_argparse():
         default=10.0,
     )
     parser.add_argument(
+        "-pr",
+        "--positive_rate",
+        type=float,
+        default=0.1,
+    )
+    parser.add_argument(
         "--lambda1",
         type=float,
         default=2e-2,
@@ -141,6 +147,7 @@ def main():
     encoder_structure = args.encoder_structure
     lambda1 = args.lambda1
     triplet_margin = args.triplet_margin
+    positive_rate = args.positive_rate
     learning_rate = args.learning_rate
     batch_size = args.batch_size
     log_tags = args.log_tags
@@ -155,7 +162,7 @@ def main():
     hashing = get_hashing_from_args(args, enc)
 
     RUN_TIME = datetime.now().strftime("%Y%m%d-%H%M%S")
-    RUN_NAME = f"{int(2**hash_size)}_triplet_{RUN_TIME}"
+    # RUN_NAME = f"{int(2**hash_size)}_triplet_{RUN_TIME}"
     # logger = TensorboardX(f"{LOG_BASE_DIR}/{RUN_NAME}", RUN_NAME)
     logger = CometML(
         api_key=COMET_API_KEY,
@@ -169,6 +176,7 @@ def main():
         'encoder_structure': encoder_structure,
         'lambda1': lambda1,
         'triplet_margin': triplet_margin,
+        'positive_rate': positive_rate,
         'learning_rate': learning_rate,
         'batch_size': batch_size,
         'data': "glove 25",
@@ -184,6 +192,7 @@ def main():
         logger=logger,
         lambda1=lambda1,
         triplet_margin=triplet_margin,
+        positive_rate=positive_rate,
     )
 
     nlsh.fit(

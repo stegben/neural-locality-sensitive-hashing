@@ -1,6 +1,7 @@
 from random import randint, random
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 
@@ -120,6 +121,12 @@ class KNearestNeighborSiamese(Dataset):
     def batch_generator(self, batch_size, shuffle=False):
         n_batches = len(self) // batch_size
 
+        label_all_np = np.random.random((len(self),)) < self._positive_rate
+        label_all = torch.from_numpy(label_all_np).long().cuda()
+
+        negative_idx_all = np.random.randint(0, len(self), (len(self),))
+        # negative_idx_all = torch.from_numpy(negative_idx_all).long().cuda()
+
         anchor_idxs = np.arange(len(self))
         if shuffle:
             np.random.shuffle(anchor_idxs)
@@ -133,10 +140,9 @@ class KNearestNeighborSiamese(Dataset):
             train_k = self._candidate_self_knn.shape[1]
             ramdomly_selected_positive_idx = np.random.randint(0, train_k, (batch_size,))
             positive_idxs = self._candidate_self_knn[anchor_idxs[start:end], ramdomly_selected_positive_idx]
-
-            negative_idxs = np.random.randint(0, len(self), (batch_size,))
-
-            label = np.random.random() < self._positive_rate
+            negative_idxs = negative_idx_all[start:end]
+            label = label_all_np[start:end]
+            label_output = label_all[start:end]
             other_idx = positive_idxs * label + negative_idxs * (1 - label)
             other = self._candidate_vectors[other_idx, :]
-            yield anchor, other, label
+            yield anchor, other, label_output

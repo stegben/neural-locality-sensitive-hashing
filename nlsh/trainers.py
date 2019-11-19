@@ -7,8 +7,8 @@ import numpy as np
 from tqdm import tqdm
 
 from nlsh.loggers import NullLogger
-from nlsh.learning.datasets import KNearestNeighborTriplet
-from nlsh.learning.losses import triplet_loss
+from nlsh.learning.datasets import KNearestNeighborTriplet, KNearestNeighborSiamese
+from nlsh.learning.losses import triplet_loss, contrastive_loss
 
 
 def calculate_recall(y_true, y_pred):
@@ -16,6 +16,10 @@ def calculate_recall(y_true, y_pred):
     n_true = len(y_true)
     true_positives = len(set(y_true) & set(y_pred))
     return true_positives / n_true
+
+
+def n_recall_at_h(y_true, y_pred, n=1, h=10):
+    pass
 
 
 def build_index(indexes):
@@ -34,17 +38,6 @@ def build_index(indexes):
 
     return index2row
 
-class _EvalDataset(Dataset):
-
-    def __init__(self, vector):
-        self._vector = vector
-
-    def __len__(self):
-        return self._vector.shape[0]
-
-    def __getitem__(self, idx):
-        return self._vector[idx, :]
-
 
 class TripletTrainer:
 
@@ -56,6 +49,7 @@ class TripletTrainer:
             logger=None,
             lambda1=0.001,
             triplet_margin=0.1,
+            positive_rate=0.1,
         ):
         self._hashing = hashing
         self._data = data
@@ -63,6 +57,7 @@ class TripletTrainer:
         self._logger = logger or NullLogger()
         self._lambda1 = lambda1
         self._triplet_margin = triplet_margin
+        self._positive_rate = positive_rate
 
     def fit(self, K, batch_size=1024, learning_rate=3e-4, test_every_updates=1000):
         if not self._data.prepared:
@@ -77,10 +72,16 @@ class TripletTrainer:
         self._validation_data = torch.from_numpy(validation_data)
         self._validation_data_gpu = self._validation_data.cuda()
 
-        dataset = KNearestNeighborTriplet(
+        # dataset = KNearestNeighborTriplet(
+        #     self._candidate_vectors_gpu,
+        #     candidate_self_knn,
+        #     k=100,
+        # )
+        dataset = KNearestNeighborSiamese(
             self._candidate_vectors_gpu,
             candidate_self_knn,
             k=100,
+            positive_rate=self._positive_rate,
         )
         optimizer = torch.optim.Adam(
             self._hashing.parameters(),
@@ -97,21 +98,35 @@ class TripletTrainer:
                 self._hashing.train_mode(True)
                 optimizer.zero_grad()
                 anchor = self._hashing.predict(sampled_batch[0])
-                positive = self._hashing.predict(sampled_batch[1])
-                negative = self._hashing.predict(sampled_batch[2])
-                loss = triplet_loss(
+                # positive = self._hashing.predict(sampled_batch[1])
+                # negative = self._hashing.predict(sampled_batch[2])
+                # loss = triplet_loss(
+                #     anchor,
+                #     positive,
+                #     negative,
+                #     self._hashing.distance,
+                #     self._triplet_margin,
+                # )
+                other = self._hashing.predict(sampled_batch[1])
+                label = sampled_batch[2]
+                loss = contrastive_loss(
                     anchor,
-                    positive,
-                    negative,
+                    other,
+                    label,
                     self._hashing.distance,
                     self._triplet_margin,
                 )
-                loss += self._lambda1  * ((0.5 - anchor.mean(0))**2).mean()
+
+                # import ipdb; ipdb.set_trace()
+                # loss += self._lambda1 * torch.mm(anchor, anchor.T).max(1)[0].mean()
+
+                # loss -= self._lambda1 * torch.log(torch.cdist(anchor, anchor).topk(2, dim=1, largest=False)[0][:,1]).mean()
                 self._logger.log("training/loss", loss.data.cpu(), global_step)
                 loss.backward()
                 optimizer.step()
                 if global_step % test_every_updates == 0:
                     self._hashing.train_mode(False)
+                    # import ipdb; ipdb.set_trace()
                     self._build_index()
 
                     t1 = time()
@@ -191,5 +206,3 @@ class TripletTrainer:
 
             result.append(topk_idxs)
         return result
-
-

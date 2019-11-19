@@ -4,12 +4,12 @@ import torch.nn.functional as F
 
 def contrastive_loss(
         anchor,
-        target,
+        other,
         label,
-        distance_func=F.pairwise_distance,
+        distance_func,
         margin=0.1,
     ):
-    d = distance_func(anchor, target)
+    d = distance_func(anchor, other)
     positive_loss = label * d**2
     negative_loss = (1 - label) * torch.clamp(d - margin, max=0)**2
     return torch.mean(positive_loss + negative_loss) / 2
