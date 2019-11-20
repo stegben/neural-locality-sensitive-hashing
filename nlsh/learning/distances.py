@@ -27,7 +27,7 @@ def JSD_categorical(p, q):
 
 
 def hellinger_categorical(p, q):
-    """Earth mover's distance between categorical distributions
+    """hellinger divergence between categorical distributions
     p: (n, k)
     q: (n, k)
 
@@ -40,3 +40,15 @@ def hellinger_categorical(p, q):
 
 def L2_multivariate_bernoulli(p1, p2):
     pass
+
+
+def KL_multivariate_bernoulli(p, q):
+    """KL divergence between 2 multivariate bernoulli
+    p: (n, k)
+    q: (n, k)
+
+    outputs d: (n)
+    """
+    positive = p * torch.log(p / q)
+    negative = (1-p) * torch.log((1-p) / (1-q))
+    return torch.mean(positive + negative, 1)
