@@ -3,6 +3,7 @@ import argparse
 from typing import List, Set
 
 import numpy as np
+import pandas as pd
 import torch
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -109,6 +110,7 @@ def main():
     K = args.k
 
     hasher = torch.jit.load(model_path)
+    hasher.eval()
     data = get_data_by_id(data_id)
     data.load()
 
@@ -168,16 +170,17 @@ def main():
 
             result.append(topk_idxs)
 
-        recall = np.mean([
+        recalls = [
             calculate_recall(y_true, y_pred)
             for y_pred, y_true in zip(result, list(ground_truth))
-        ])
+        ]
+        df_stats = pd.DataFrame({"index": test_indexes, "recall": recalls, "n": list_n_candidates})
+        recall = np.mean(recalls)
         avg_n_candidates = np.mean(list_n_candidates)
+        import ipdb; ipdb.set_trace()
 
         print(avg_n_candidates, recall)
     import ipdb; ipdb.set_trace()
-    #   calculate n_candidates
-    #   calculate recall
 
 
 if __name__ == "__main__":
