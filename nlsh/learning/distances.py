@@ -42,13 +42,13 @@ def L2_multivariate_bernoulli(p1, p2):
     pass
 
 
-def KL_multivariate_bernoulli(p, q):
+def KL_multivariate_bernoulli(p, q, epsilon=1e-8):
     """KL divergence between 2 multivariate bernoulli
     p: (n, k)
     q: (n, k)
 
     outputs d: (n)
     """
-    positive = p * torch.log(p / q)
-    negative = (1-p) * torch.log((1-p) / (1-q))
+    positive = p * torch.log(p / (q + epsilon))
+    negative = (1 - p) * torch.log((1 - p) / (1 - q + epsilon))
     return torch.mean(positive + negative, 1)
