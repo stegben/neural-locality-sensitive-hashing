@@ -1,6 +1,7 @@
 from tensorboardX import SummaryWriter
 from comet_ml import Experiment
 
+
 class NullLogger:
 
     def __init__(self):
