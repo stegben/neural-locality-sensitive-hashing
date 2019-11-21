@@ -41,15 +41,16 @@ def build_index(indexes):
 
 class _Indexer:
 
-    def __init__(self, hashing, candidate_vectors, distance_func):
+    def __init__(self, hashing, candidate_vectors, candidate_vectors_gpu, distance_func):
         self._hashing = hashing
         self._candidate_vectors = candidate_vectors
+        self._candidate_vectors_gpu = candidate_vectors_gpu
         self._distance_func = distance_func
 
         self._build_index()
 
     def _build_index(self):
-        indexes = self.hash(self._candidate_vectors)
+        indexes = self.hash(self._candidate_vectors_gpu)
         self.index2row = build_index(indexes)
 
     def hash(self, query_vectors, batch_size=1024):
@@ -68,8 +69,8 @@ class _Indexer:
         hash_keys += hash_key
         return hash_keys
 
-    def query(self, query_vectors, k=10):
-        query_indexes = self.hash(query_vectors)
+    def query(self, query_vectors, query_vectors_gpu, k=10):
+        query_indexes = self.hash(query_vectors_gpu)
         result = []
         vector_buffer = torch.rand(self._candidate_vectors.shape)
         for idx, qi in enumerate(query_indexes):
@@ -110,14 +111,14 @@ class TripletTrainer:
             model_save_dir,
             logger=None,
             lambda1=0.001,
-            triplet_margin=0.1,
+            margin=0.1,
         ):
         self._hashing = hashing
         self._data = data
         self._model_save_dir = model_save_dir
         self._logger = logger or NullLogger()
         self._lambda1 = lambda1
-        self._triplet_margin = triplet_margin
+        self._margin = margin
 
     def fit(self, K, batch_size=1024, learning_rate=3e-4, test_every_updates=1000):
         if not self._data.prepared:
@@ -159,12 +160,12 @@ class TripletTrainer:
                     positive,
                     negative,
                     self._hashing.distance,
-                    self._triplet_margin,
+                    self._margin,
                 )
 
                 # TODO: DI uniform regularizers
                 # loss += self._lambda1 * torch.mm(anchor, anchor.T).max(1)[0].mean()
-                # loss -= self._lambda1 * torch.log(torch.cdist(anchor, anchor).topk(2, dim=1, largest=False)[0][:,1]).mean()
+                loss -= self._lambda1 * torch.log(torch.cdist(anchor, anchor).topk(2, dim=1, largest=False)[0][:,1]).mean()
 
                 self._logger.log("training/loss", loss.data.cpu(), global_step)
                 loss.backward()
@@ -172,14 +173,19 @@ class TripletTrainer:
                 if global_step % test_every_updates == 0:
                     self._hashing.train_mode(False)
                     # import ipdb; ipdb.set_trace()
-                    indexer = _Indexer(self._hashing, self._candidate_vectors_gpu, self._data.distance)
+                    indexer = _Indexer(
+                        self._hashing,
+                        self._candidate_vectors,
+                        self._candidate_vectors_gpu,
+                        self._data.distance,
+                    )
                     n_indexes = len(indexer.index2row)
                     self._logger.log("test/n_indexes", n_indexes, global_step)
                     std_index_rows = np.std([len(idxs) for idxs in indexer.index2row.values()])
                     self._logger.log("test/std_index_rows", std_index_rows, global_step)
 
                     t1 = time()
-                    result = indexer.query(self._validation_data_gpu, k=K)
+                    result = indexer.query(self._validation_data, self._validation_data_gpu, k=K)
                     t2 = time()
                     query_time = t2 - t1
                     current_recall = np.mean([
@@ -275,14 +281,19 @@ class SiameseTrainer:
                 if global_step % test_every_updates == 0:
                     self._hashing.train_mode(False)
                     # import ipdb; ipdb.set_trace()
-                    indexer = _Indexer(self._hashing, self._candidate_vectors_gpu, self._data.distance)
+                    indexer = _Indexer(
+                        self._hashing,
+                        self._candidate_vectors,
+                        self._candidate_vectors_gpu,
+                        self._data.distance,
+                    )
                     n_indexes = len(indexer.index2row)
                     self._logger.log("test/n_indexes", n_indexes, global_step)
                     std_index_rows = np.std([len(idxs) for idxs in indexer.index2row.values()])
                     self._logger.log("test/std_index_rows", std_index_rows, global_step)
 
                     t1 = time()
-                    result = indexer.query(self._validation_data_gpu, k=K)
+                    result = indexer.query(self._validation_data, self._validation_data_gpu, k=K)
                     t2 = time()
                     query_time = t2 - t1
                     current_recall = np.mean([
