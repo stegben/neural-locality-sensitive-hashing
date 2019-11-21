@@ -12,10 +12,14 @@ class NullLogger:
         return "Null"
 
     def meta(self, *args, **kwargs):
-        pass
+        print(args)
+        print(kwargs)
 
     def log(self, name, loss, step):
-        pass
+        print(f"Step {step} {name}: {loss}")
+
+    def args(self, arg_text):
+        print(arg_text)
 
 
 class TensorboardX:
