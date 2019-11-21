@@ -7,11 +7,12 @@ def contrastive_loss(
         other,
         label,
         distance_func,
-        margin=0.1,
+        negative_margin=0.1,
+        positive_margin=0.0,
     ):
     d = distance_func(anchor, other)
-    positive_loss = label * d**2
-    negative_loss = (1 - label) * torch.clamp(d - margin, max=0)**2
+    positive_loss = label * torch.clamp(d - positive_margin, min=0)**2
+    negative_loss = (1 - label) * torch.clamp(d - negative_margin, max=0)**2
     return torch.mean(positive_loss + negative_loss) / 2
 
 
