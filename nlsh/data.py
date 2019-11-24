@@ -6,11 +6,16 @@ import torch.nn.functional as F
 import numpy as np
 
 
+def norm_to_unit_sphere(arr):
+    return arr / np.linalg.norm(arr, axis=1)[:, np.newaxis]
+
+
 # TODO: unify member type and pairwise_distance library
 class Glove:
 
-    def __init__(self, path):
+    def __init__(self, path, normalized=False):
         self.f = h5py.File(path, "r")
+        self._normalized = normalized
         # TODO: retry 3 times, wait for 5 sec each time
         self._prepared = False
 
@@ -23,6 +28,11 @@ class Glove:
         except KeyError:
             # TODO: precompute knn here. For now, call `python precompute.py {data_name}`
             pass
+
+        if self._normalized:
+            self._training = norm_to_unit_sphere(self._training)
+            self._testing = norm_to_unit_sphere(self._testing)
+
         self.f.close()
 
         self._dim = self._training.shape[1]
