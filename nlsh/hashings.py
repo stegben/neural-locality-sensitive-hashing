@@ -1,4 +1,6 @@
 # learnable hash functions
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -109,3 +111,9 @@ class Categorical:
             self._hasher.train()
         else:
             self._hasher.eval()
+
+
+class ProductQuantization:
+
+    def __init__(self, bits_of_each_band: List[int]):
+        pass
