@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 from nlsh.data import Glove
-from nlsh.trainers import build_index, calculate_recall
+from nlsh.indexer import build_index
+from nlsh.metrics import calculate_recall
 
 load_dotenv()
 
