@@ -95,7 +95,7 @@ class TripletTrainer:
                     result = indexer.query(self._validation_data, self._validation_data_gpu, k=K)
                     t2 = time()
                     query_time = t2 - t1
-                    current_recall = calculate_recall(result, list(ground_truth), np.mean)
+                    current_recall = calculate_recall(list(ground_truth), result, np.mean)
 
                     if current_recall > best_recall:
                         base_name = f"{self._model_save_dir}/{self._logger.run_name}_{global_step}_{current_recall:.4f}"

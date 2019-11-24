@@ -8,7 +8,7 @@ def _recall(y_true: List[int], y_pred: List[int]) -> float:
 
 
 def calculate_recall(
-        y_true:List[List[int]],
+        y_true: List[List[int]],
         y_pred: List[List[int]],
         reduce_func=None,
     ) -> Union[List[float], float]:
