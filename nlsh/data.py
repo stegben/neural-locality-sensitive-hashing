@@ -13,25 +13,33 @@ def norm_to_unit_sphere(arr):
 # TODO: unify member type and pairwise_distance library
 class Glove:
 
-    def __init__(self, path, normalized=False):
+    def __init__(self, path, unit_norm=False, unit_ball=False):
         self.f = h5py.File(path, "r")
-        self._normalized = normalized
+        self._unit_norm = unit_norm
+        self._unit_ball = unit_ball
         # TODO: retry 3 times, wait for 5 sec each time
         self._prepared = False
 
     def load(self):
         self._training = np.array(self.f['train'])
         self._testing = np.array(self.f['test'])
+
+        if self._unit_norm:
+            mean = self._training.mean(0)
+            std = self._training.std(0)
+            self._training = (self._training - mean) / std
+            self._testing = (self._testing - mean) / std
+
+        if self._unit_ball:
+            self._training = norm_to_unit_sphere(self._training)
+            self._testing = norm_to_unit_sphere(self._testing)
+
         self._ground_truth = np.array(self.f['neighbors'])
         try:
             self._training_self_knn = np.array(self.f['train_knn'])
         except KeyError:
             # TODO: precompute knn here. For now, call `python precompute.py {data_name}`
             pass
-
-        if self._normalized:
-            self._training = norm_to_unit_sphere(self._training)
-            self._testing = norm_to_unit_sphere(self._testing)
 
         self.f.close()
 
