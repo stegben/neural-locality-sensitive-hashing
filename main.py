@@ -10,7 +10,7 @@ from encoders import MultiLayerRelu
 from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove
 from nlsh.loggers import TensorboardX, CometML, NullLogger
-from nlsh.trainers import TripletTrainer, SiameseTrainer
+from nlsh.trainers import TripletTrainer, SiameseTrainer, VQVAE
 
 from nlsh.learning.datasets import KNearestNeighborTriplet
 from nlsh.learning.distances import (
@@ -29,14 +29,14 @@ COMET_PROJECT_NAME = os.environ["NLSH_COMET_PROJECT_NAME"]
 COMET_WORKSPACE = os.environ["NLSH_COMET_WORKSPACE"]
 
 
-def get_data_by_id(data_id):
+def get_data_by_id(data_id, normalized):
     id2path = {
         "glove_25": os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH"),
         "glove_50": os.environ.get("NLSH_PROCESSED_GLOVE_50_PATH"),
         "glove_100": os.environ.get("NLSH_PROCESSED_GLOVE_100_PATH"),
         "glove_200": os.environ.get("NLSH_PROCESSED_GLOVE_200_PATH"),
     }
-    return Glove(id2path[data_id])
+    return Glove(id2path[data_id], normalized=normalized)
 
 
 def comma_separate_ints(value):
@@ -161,6 +161,13 @@ def get_learner_from_args(args, hashing, data, logger):
             negative_margin=negative_margin,
             positive_rate=positive_rate,
         )
+    elif args.learner_type == "vqvae":
+        learner = VQVAE(
+            hashing,
+            data,
+            MODEL_SAVE_DIR,
+            logger=logger,
+        )
     return learner
 
 
@@ -203,6 +210,11 @@ def nlsh_argparse():
         choices=("glove_25", "glove_50", "glove_100", "glove_200",),
     )
     parser.add_argument(
+        "--normalized",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "--logger_type",
         type=str,
         choices=("tensorboard", "cometml"),
@@ -215,7 +227,7 @@ def nlsh_argparse():
     parser.add_argument(
         "--learner_type",
         type=str,
-        choices=("triplet", "siamese"),
+        choices=("triplet", "siamese", "vqvae"),
     )
     parser.add_argument(
         "-tm",
