@@ -29,14 +29,16 @@ COMET_PROJECT_NAME = os.environ["NLSH_COMET_PROJECT_NAME"]
 COMET_WORKSPACE = os.environ["NLSH_COMET_WORKSPACE"]
 
 
-def get_data_by_id(data_id, normalized):
-    id2path = {
-        "glove_25": os.environ.get("NLSH_PROCESSED_GLOVE_25_PATH"),
-        "glove_50": os.environ.get("NLSH_PROCESSED_GLOVE_50_PATH"),
-        "glove_100": os.environ.get("NLSH_PROCESSED_GLOVE_100_PATH"),
-        "glove_200": os.environ.get("NLSH_PROCESSED_GLOVE_200_PATH"),
-    }
-    return Glove(id2path[data_id], normalized=normalized)
+def get_data_by_id(data_id):
+    data_setting = data_id.split("_")
+    if data_setting == "glove":
+        glove_dim = data_setting[1]
+        assert glove_dim in ["25", "50", "100", "200"]
+        path = os.environ.get(f"NLSH_PROCESSED_GLOVE_{glove_dim}_PATH")
+
+        unit_norm = True if "norm" in data_id else False
+        unit_ball = True if "sphere" in data_id else False
+        return Glove(path, unit_norm, unit_ball)
 
 
 def comma_separate_ints(value):
@@ -208,11 +210,6 @@ def nlsh_argparse():
         "--data_id",
         type=str,
         choices=("glove_25", "glove_50", "glove_100", "glove_200",),
-    )
-    parser.add_argument(
-        "--normalized",
-        action="store_true",
-        default=False,
     )
     parser.add_argument(
         "--logger_type",
