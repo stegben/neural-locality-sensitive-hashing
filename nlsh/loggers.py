@@ -16,7 +16,8 @@ class NullLogger:
         print(kwargs)
 
     def log(self, name, loss, step):
-        print(f"Step {step} {name}: {loss}")
+        if step % 100 == 0:
+            print(f"Step {step} {name}: {loss}")
 
     def args(self, arg_text):
         print(arg_text)
