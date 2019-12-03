@@ -2,7 +2,7 @@ from .siamese import SiameseTrainer
 from .triplet import TripletTrainer
 
 # TODO: new idea
-# from .vqvae import VQVAE
+from .vqvae import VQVAE
 
 # TODO: reporduce
 # from .kmeans import KMeansTrainer
