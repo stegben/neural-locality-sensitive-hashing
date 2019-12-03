@@ -31,7 +31,7 @@ COMET_WORKSPACE = os.environ["NLSH_COMET_WORKSPACE"]
 
 def get_data_by_id(data_id):
     data_setting = data_id.split("_")
-    if data_setting == "glove":
+    if data_setting[0] == "glove":
         glove_dim = data_setting[1]
         assert glove_dim in ["25", "50", "100", "200"]
         path = os.environ.get(f"NLSH_PROCESSED_GLOVE_{glove_dim}_PATH")
@@ -39,6 +39,7 @@ def get_data_by_id(data_id):
         unit_norm = True if "norm" in data_id else False
         unit_ball = True if "sphere" in data_id else False
         return Glove(path, unit_norm, unit_ball)
+    raise RuntimeError
 
 
 def comma_separate_ints(value):
@@ -209,7 +210,7 @@ def nlsh_argparse():
     parser.add_argument(
         "--data_id",
         type=str,
-        choices=("glove_25", "glove_50", "glove_100", "glove_200",),
+        # choices=("glove_25", "glove_50", "glove_100", "glove_200",),
     )
     parser.add_argument(
         "--logger_type",
