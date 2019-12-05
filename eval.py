@@ -122,6 +122,22 @@ def main():
         k: v.shape[0]
         for k, v in index2row.items()
     }
+
+    # from sklearn.neighbors.kde import KernelDensity
+    # X = data.training
+    # X = X / np.linalg.norm(X, axis=1)[:, np.newaxis]
+    # print("learn KDE")
+    # kde = KernelDensity(kernel='gaussian', bandwidth=0.2).fit(X[np.random.randint(0, X.shape[0], 100000), :])
+    # print("KDE prediction")
+    # rn_idxs = np.random.randint(0, X.shape[0], 100000)
+    # density = kde.score_samples(X[rn_idxs, :])
+    # df = pd.DataFrame({
+    #     "index": np.array(indexes)[rn_idxs],
+    #     "density": density,
+    # })
+    # df_result = df.groupby("index")[["density"]].mean()
+    # df_result["rownum"] = df_result.index.map(index2rownum)
+    # import ipdb; ipdb.set_trace()
     # hash eval
     query_vectors = torch.from_numpy(data.testing)
     test_probs = hasher(query_vectors)
@@ -171,10 +187,7 @@ def main():
 
             result.append(topk_idxs)
 
-        recalls = [
-            calculate_recall(y_true, y_pred)
-            for y_pred, y_true in zip(result, list(ground_truth))
-        ]
+        recalls = calculate_recall(list(ground_truth), result)
         df_stats = pd.DataFrame({"index": test_indexes, "recall": recalls, "n": list_n_candidates})
         recall = np.mean(recalls)
         avg_n_candidates = np.mean(list_n_candidates)
