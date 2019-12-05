@@ -42,13 +42,25 @@ def L2_multivariate_bernoulli(p1, p2):
     pass
 
 
-def KL_multivariate_bernoulli(p, q, epsilon=1e-8):
+def KL_multivariate_bernoulli(p, q, epsilon=1e-16):
     """KL divergence between 2 multivariate bernoulli
     p: (n, k)
     q: (n, k)
 
     outputs d: (n)
     """
-    positive = p * torch.log(p / (q + epsilon))
-    negative = (1 - p) * torch.log((1 - p) / (1 - q + epsilon))
+    positive = p * torch.log(epsilon + p / (q + 1e-20))
+    negative = (1 - p) * torch.log(epsilon + (1 - p) / (1 - q + 1e-20))
     return torch.mean(positive + negative, 1)
+
+
+def _entropy_multivariate_bernoulli(p, epsilon):
+    positive = - p * torch.log(p + epsilon)
+    negative = - (1 - p) * torch.log(1 - p + epsilon)
+    return torch.mean(positive + negative, 1)
+
+
+def cross_entropy_multivariate_bernoulli(p, q, epsilon=1e-20):
+    kl = KL_multivariate_bernoulli(p, q, epsilon)
+    entropy = _entropy_multivariate_bernoulli(p, epsilon)
+    return  kl + entropy
