@@ -17,6 +17,7 @@ from nlsh.learning.distances import (
     L2,
     JSD_categorical,
     KL_multivariate_bernoulli,
+    cross_entropy_multivariate_bernoulli,
 )
 
 load_dotenv()
@@ -81,6 +82,12 @@ def get_hashing_from_args(args, enc):
             return MultivariateBernoulli(enc, hash_size, L2)
         elif distance_type == "KL":
             return MultivariateBernoulli(enc, hash_size, KL_multivariate_bernoulli)
+        elif distance_type == "CrossEntropy":
+            return MultivariateBernoulli(
+                enc,
+                hash_size,
+                cross_entropy_multivariate_bernoulli,
+            )
         else:
             raise RuntimeError(f"{distance_type} is not valid for {hashing_type}")
 
@@ -196,35 +203,29 @@ def nlsh_argparse():
     parser.add_argument(
         "-ht",
         "--hashing_type",
-        type=str,
         default='MultivariateBernoulli',
         choices=("MultivariateBernoulli", "Categorical"),
     )
     parser.add_argument(
         "-dt",
         "--distance_type",
-        type=str,
         default='L2',
-        choices=("L2", "JS", "KL"),
+        choices=("L2", "JS", "KL", "CrossEntropy"),
     )
     parser.add_argument(
         "--data_id",
-        type=str,
         # choices=("glove_25", "glove_50", "glove_100", "glove_200",),
     )
     parser.add_argument(
         "--logger_type",
-        type=str,
         choices=("tensorboard", "cometml"),
     )
     parser.add_argument(
         "--log_tags",
-        type=str,
         default=None,
     )
     parser.add_argument(
         "--learner_type",
-        type=str,
         choices=("triplet", "siamese", "vqvae"),
     )
     parser.add_argument(
