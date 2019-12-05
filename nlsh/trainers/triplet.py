@@ -92,16 +92,18 @@ class TripletTrainer:
                     self._logger.log("test/std_index_rows", std_index_rows, global_step)
 
                     t1 = time()
-                    result = indexer.query(self._validation_data, self._validation_data_gpu, k=K)
+                    recalls, n_candidates = indexer.query(self._validation_data, self._validation_data_gpu, k=K)
                     t2 = time()
                     query_time = t2 - t1
-                    current_recall = calculate_recall(list(ground_truth), result, np.mean)
+                    current_recall = calculate_recall(list(ground_truth), recalls, np.mean)
+                    current_query_size = np.mean(n_candidates)
 
-                    if current_recall > best_recall:
+                    if (current_recall > best_recall) and (current_query_size < best_query_size):
                         base_name = f"{self._model_save_dir}/{self._logger.run_name}_{global_step}_{current_recall:.4f}"
                         self._hashing.save(base_name)
                         best_recall = current_recall
 
                     self._logger.log("test/recall", current_recall, global_step)
+                    self._logger.log("test/query_size", current_query_size, global_step)
                     qps = self._validation_data.shape[0] / query_time
                     self._logger.log("test/qps", qps, global_step)

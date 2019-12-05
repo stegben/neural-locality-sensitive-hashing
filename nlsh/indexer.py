@@ -52,7 +52,8 @@ class Indexer:
 
     def query(self, query_vectors, query_vectors_gpu, k=10) -> List[List[int]]:
         query_indexes = self.hash(query_vectors_gpu)
-        result = []
+        recall_result = []
+        n_candidates_result = []
         vector_buffer = torch.rand(self._candidate_vectors.shape)
         for idx, qi in enumerate(query_indexes):
             candidate_rows = self.index2row.get(qi, torch.LongTensor([]))
@@ -78,6 +79,6 @@ class Indexer:
                 topk_idxs = [int(candidate_rows[i]) for i in topk_idxs]
             except RuntimeError:
                 topk_idxs = candidate_rows
-
-            result.append(topk_idxs)
-        return result
+            n_candidates_result.append(n_candidates)
+            recall_result.append(topk_idxs)
+        return recall_result, n_candidates_result
