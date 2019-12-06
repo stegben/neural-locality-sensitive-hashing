@@ -74,7 +74,7 @@ class CometML:
         )
 
 
-class WanDB:
+class WandB:
 
     def __init__(self):
         pass
