@@ -1,5 +1,6 @@
 from tensorboardX import SummaryWriter
 from comet_ml import Experiment
+import wandb
 
 
 class NullLogger:
@@ -76,15 +77,21 @@ class CometML:
 
 class WandB:
 
-    def __init__(self):
-        pass
+    def __init__(self, tags):
+        self._run = wandb.init(tags=tags, job_type="training")
 
     @property
     def run_name(self):
-        return "Null"
+        return self._run.id
 
-    def meta(self, *args, **kwargs):
-        pass
+    def args(self, arg_text):
+        wandb.config.update({"cmd args": arg_text})
+
+    def meta(self, params):
+        wandb.config.update(params)
 
     def log(self, name, value, step):
-        pass
+        wandb.log(
+            {name: value},
+            step=step,
+        )
