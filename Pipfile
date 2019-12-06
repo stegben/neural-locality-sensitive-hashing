@@ -15,6 +15,7 @@ python-dotenv = "*"
 tensorboardx = "*"
 tqdm = "*"
 comet-ml = "*"
+wandb = "*"
 
 [requires]
 python_version = "3.6"
