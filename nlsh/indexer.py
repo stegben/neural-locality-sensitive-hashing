@@ -15,7 +15,7 @@ def build_index(indexes):
     # allocating a new LongTensor is non trivial and will dominate
     # the evaluation process time
     for index, rows in index2row.items():
-        index2row[index] = torch.LongTensor(rows)
+        index2row[index] = torch.LongTensor(rows).cuda()
 
     return index2row
 
@@ -54,18 +54,19 @@ class Indexer:
         query_indexes = self.hash(query_vectors_gpu)
         recall_result = []
         n_candidates_result = []
-        vector_buffer = torch.rand(self._candidate_vectors.shape)
+        vector_buffer = torch.rand(self._candidate_vectors_gpu.shape).cuda()
+        default_empty_rows = torch.LongTensor([]).cuda()
         for idx, qi in enumerate(query_indexes):
-            candidate_rows = self.index2row.get(qi, torch.LongTensor([]))
+            candidate_rows = self.index2row.get(qi, default_empty_rows)
 
             n_candidates = len(candidate_rows)
-            target_vector = query_vectors[idx, :]
+            target_vector = query_vectors_gpu[idx, :]
 
             # NOTE: indexing with tensor will create a copy
             # use index_select will directly move data from one to
             # another. This highly reduce the memory allocation overhead
             torch.index_select(
-                self._candidate_vectors,
+                self._candidate_vectors_gpu,
                 0,
                 candidate_rows,
                 out=vector_buffer[:n_candidates, :],
