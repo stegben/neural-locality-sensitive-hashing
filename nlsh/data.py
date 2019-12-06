@@ -21,7 +21,9 @@ class Glove:
         self._prepared = False
 
     def load(self):
+        print("reading glove training data...")
         self._training = np.array(self.f['train'])
+        print("reading glove testing data...")
         self._testing = np.array(self.f['test'])
 
         if self._unit_norm:

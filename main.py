@@ -285,16 +285,20 @@ def main():
     learning_rate = args.learning_rate
     batch_size = args.batch_size
 
+    print("=== read data ===")
     data = get_data_by_id(args.data_id)
     data.load()
+    print("=== prepare encoder ===")
     enc = MultiLayerRelu(
         input_dim=data.dim,
         hidden_dims=args.encoder_structure,
     ).cuda()
     hashing = get_hashing_from_args(args, enc)
     logger = get_logger_from_args(args)
+    print("=== prepare learner ===")
     learner = get_learner_from_args(args, hashing, data, logger)
 
+    print("Start training")
     learner.fit(
         K=k,
         batch_size=batch_size,
