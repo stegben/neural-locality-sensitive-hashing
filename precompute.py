@@ -88,7 +88,7 @@ def _cosine_distance(v1, v2):
         return 1 - cosine_similarity
 
 
-def self_get_knn_pt_cosine(vectors, k=1000, batch_size=64):
+def self_get_knn_pt_cosine(vectors, k=100, batch_size=512):
     vector_pt = torch.from_numpy(vectors).cuda()
     n = vectors.shape[0]
     knn = np.zeros((n, k), dtype=int)
