@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from encoders import MultiLayerRelu
 from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove
-from nlsh.loggers import TensorboardX, CometML, NullLogger
+from nlsh.loggers import TensorboardX, CometML, WandB, NullLogger
 from nlsh.trainers import TripletTrainer, SiameseTrainer, VQVAE
 
 from nlsh.learning.datasets import KNearestNeighborTriplet
@@ -113,6 +113,10 @@ def get_logger_from_args(args):
             run_time = datetime.now().strftime("%Y%m%d-%H%M%S")
             run_name = f"{int(2**args.hash_size)}_triplet_{run_time}"
             logger = TensorboardX(f"{LOG_BASE_DIR}/{run_name}", run_name)
+        elif args.logger_type == "wandb":
+            log_tags = args.log_tags
+            log_tags = log_tags.split(",") if log_tags is not None else None
+            logger = WandB(log_tags)
         else:
             raise RuntimeError(f"{args.logger_type} is not a valid logger type")
 
@@ -218,7 +222,7 @@ def nlsh_argparse():
     )
     parser.add_argument(
         "--logger_type",
-        choices=("tensorboard", "cometml"),
+        choices=("tensorboard", "cometml", "wandb"),
     )
     parser.add_argument(
         "--log_tags",
