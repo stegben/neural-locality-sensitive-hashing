@@ -53,6 +53,7 @@ class TripletTrainer:
 
         global_step = 0
         best_recall = 0.
+        best_query_size = float("Inf")
         for _ in range(300):
             for sampled_batch in dataset.batch_generator(batch_size, True):
                 global_step += 1
@@ -72,7 +73,7 @@ class TripletTrainer:
 
                 # TODO: DI uniform regularizers
                 # loss += self._lambda1 * torch.mm(anchor, anchor.T).max(1)[0].mean()
-                loss -= self._lambda1 * torch.log(torch.cdist(anchor, anchor).topk(2, dim=1, largest=False)[0][:,1]).mean()
+                # loss -= self._lambda1 * torch.log(torch.cdist(anchor, anchor).topk(2, dim=1, largest=False)[0][:,1]).mean()
 
                 self._logger.log("training/loss", loss.data.cpu(), global_step)
                 loss.backward()
