@@ -131,14 +131,6 @@ def get_logger_from_args(args):
         # data related
         'data_id': args.data_id,
 
-        # learner related
-        'lambda1': args.lambda1,
-        'learner_type': args.learner_type,
-        'triplet_margin': args.triplet_margin,
-        'siamese_positive_margin': args.siamese_positive_margin,
-        'siamese_negative_margin': args.siamese_negative_margin,
-        'siamese_positive_rate': args.siamese_positive_rate,
-
         # fitting related
         'learning_rate': args.learning_rate,
         'batch_size': args.batch_size,
@@ -151,6 +143,12 @@ def get_learner_from_args(args, hashing, data, logger):
     if args.learner_type == "triplet":
         lambda1 = args.lambda1
         margin = args.triplet_margin
+        logger.meta(params={
+            "learner_type": "triplet",
+            "learner_args": f"m={margin} l1={lambda1}",
+            "triplet_margin": margin,
+            "lambda1": lambda1,
+        })
         learner = TripletTrainer(
             hashing,
             data,
@@ -164,7 +162,14 @@ def get_learner_from_args(args, hashing, data, logger):
         positive_margin = args.siamese_positive_margin
         negative_margin = args.siamese_negative_margin
         positive_rate = args.siamese_positive_rate
-
+        logger.meta(params={
+            "learner_type": "siamese",
+            "learner_args": f"nm={negative_margin} pm={positive_margin} pr={positive_rate}",
+            'siamese_positive_margin': positive_margin,
+            'siamese_negative_margin': negative_margin,
+            'siamese_positive_rate': positive_rate,
+            "lambda1": lambda1,
+        })
         learner = SiameseTrainer(
             hashing,
             data,
@@ -176,6 +181,9 @@ def get_learner_from_args(args, hashing, data, logger):
             positive_rate=positive_rate,
         )
     elif args.learner_type == "vqvae":
+        logger.meta(params={
+            "learner_type": "vqvae",
+        })
         learner = VQVAE(
             hashing,
             data,
