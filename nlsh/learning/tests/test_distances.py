@@ -20,5 +20,5 @@ def test_KL_multivariate_bernoulli():
     divergence = KL_multivariate_bernoulli(p, q)
     np.testing.assert_array_almost_equal(
         divergence.numpy(),
-        np.array([0.510826, 0.368064, 1.757779, 0., np.nan]),
+        np.array([0.510826, 0.368064, 1.757779, 0., 46.0517]),
     )
