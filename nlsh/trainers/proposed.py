@@ -83,7 +83,6 @@ class ProposedTrainer:
                 loss.backward()
                 optimizer.step()
                 if global_step % test_every_updates == 0:
-                    import ipdb; ipdb.set_trace()
                     self._hashing.train_mode(False)
                     indexer = Indexer(
                         self._hashing,
