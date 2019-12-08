@@ -81,14 +81,12 @@ class SiameseTrainer:
                 # TODO: potential uniform regularizers
                 # loss += self._lambda1 * torch.mm(anchor, anchor.T).max(1)[0].mean()
                 # loss -= self._lambda1 * torch.log(torch.cdist(anchor, anchor).topk(2, dim=1, largest=False)[0][:,1]).mean()
-                if torch.isnan(loss):
-                    import ipdb; ipdb.set_trace()
+
                 self._logger.log("training/loss", loss.data.cpu(), global_step)
                 loss.backward()
                 optimizer.step()
                 if global_step % test_every_updates == 0:
                     self._hashing.train_mode(False)
-                    # import ipdb; ipdb.set_trace()
                     indexer = Indexer(
                         self._hashing,
                         self._candidate_vectors,
