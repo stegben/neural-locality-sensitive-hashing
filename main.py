@@ -10,14 +10,19 @@ from encoders import MultiLayerRelu
 from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove
 from nlsh.loggers import TensorboardX, CometML, WandB, NullLogger
-from nlsh.trainers import TripletTrainer, SiameseTrainer, VQVAE
+from nlsh.trainers import (
+    TripletTrainer,
+    SiameseTrainer,
+    VQVAE,
+    ProposedTrainer,
+)
 
 from nlsh.learning.datasets import KNearestNeighborTriplet
 from nlsh.learning.distances import (
-    L2,
     JSD_categorical,
-    KL_multivariate_bernoulli,
-    cross_entropy_multivariate_bernoulli,
+    MVBernoulliL2,
+    MVBernoulliKLDivergence,
+    MVBernoulliCrossEntropy,
 )
 
 load_dotenv()
@@ -68,25 +73,34 @@ def get_hashing_from_args(args, enc):
     distance_type = args.distance_type
 
     if hashing_type == "Categorical":
-        hash_size = int(2 ** args.hash_size)
-        if distance_type == "L2":
-            return Categorical(enc, hash_size, L2)
-        elif distance_type == "JS":
-            return Categorical(enc, hash_size, JSD_categorical)
-        else:
-            raise RuntimeError(f"{distance_type} is not valid for {hashing_type}")
+        # hash_size = int(2 ** args.hash_size)
+        # if distance_type == "L2":
+        #     return Categorical(enc, hash_size, L2)
+        # elif distance_type == "JS":
+        #     return Categorical(enc, hash_size, JSD_categorical)
+        # else:
+        #     raise RuntimeError(f"{distance_type} is not valid for {hashing_type}")
+        raise RuntimeError("Categorical hashing not available temporarily")
 
     elif hashing_type == "MultivariateBernoulli":
         hash_size = args.hash_size
         if distance_type == "L2":
-            return MultivariateBernoulli(enc, hash_size, L2)
+            return MultivariateBernoulli(
+                enc,
+                hash_size,
+                MVBernoulliL2(),
+            )
         elif distance_type == "KL":
-            return MultivariateBernoulli(enc, hash_size, KL_multivariate_bernoulli)
+            return MultivariateBernoulli(
+                enc,
+                hash_size,
+                MVBernoulliKLDivergence(epsilon=1e-20),
+            )
         elif distance_type == "CrossEntropy":
             return MultivariateBernoulli(
                 enc,
                 hash_size,
-                cross_entropy_multivariate_bernoulli,
+                MVBernoulliCrossEntropy(epsilon=1e-20),
             )
         else:
             raise RuntimeError(f"{distance_type} is not valid for {hashing_type}")
@@ -190,6 +204,20 @@ def get_learner_from_args(args, hashing, data, logger):
             MODEL_SAVE_DIR,
             logger=logger,
         )
+    elif args.learner_type == "proposed":
+        lambda1 = args.lambda1
+        logger.meta(params={
+            "learner_type": "vqvae",
+            "learner_args": f"train_k=10 l1={lambda1}",
+        })
+        learner = ProposedTrainer(
+            hashing,
+            data,
+            MODEL_SAVE_DIR,
+            logger=logger,
+            train_k=10,
+            lambda1=lambda1,
+        )
     return learner
 
 
@@ -238,7 +266,7 @@ def nlsh_argparse():
     )
     parser.add_argument(
         "--learner_type",
-        choices=("triplet", "siamese", "vqvae"),
+        choices=("triplet", "siamese", "vqvae", "proposed"),
     )
     parser.add_argument(
         "-tm",
