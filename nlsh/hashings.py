@@ -32,8 +32,9 @@ class MultivariateBernoulli:
     def predict(self, x):
         return self._hasher(x)
 
-    def distance(self, y1, y2):
-        return self._distance_func(y1, y2)
+    @property
+    def distance(self):
+        return self._distance_func
 
     def parameters(self):
         return self._hasher.parameters()

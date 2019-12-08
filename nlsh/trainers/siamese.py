@@ -73,7 +73,7 @@ class SiameseTrainer:
                     anchor,
                     other,
                     label,
-                    self._hashing.distance,
+                    self._hashing.distance.rowwise,
                     positive_margin=self._positive_margin,
                     negative_margin=self._negative_margin,
                 )

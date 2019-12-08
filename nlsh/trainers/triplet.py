@@ -67,7 +67,7 @@ class TripletTrainer:
                     anchor,
                     positive,
                     negative,
-                    self._hashing.distance,
+                    self._hashing.distance.rowwise,
                     self._margin,
                 )
 
