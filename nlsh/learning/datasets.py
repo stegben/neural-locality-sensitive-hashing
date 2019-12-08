@@ -162,3 +162,49 @@ class KNearestNeighborLocallySiamese:
             other_idx = positive_idxs * label + negative_idxs * (1 - label)
             other = self._candidate_vectors[other_idx, :]
             yield anchor, other, label_output
+
+
+class KNearestNeighborAllOut:
+
+    def __init__(
+            self,
+            candidate_vectors,
+            candidate_self_knn,
+            k=None,
+        ):
+        self._candidate_vectors = candidate_vectors
+        self._candidate_self_knn = candidate_self_knn
+
+        self.k = k or candidate_self_knn.shape[1]
+        self.n_candidates = self._candidate_vectors.shape[0]
+
+    def __len__(self):
+        return self.n_candidates
+
+    def batch_generator(self, batch_size, shuffle=False):
+        n_batches = len(self) // batch_size
+
+        anchor_idxs = np.arange(len(self))
+        if shuffle:
+            np.random.shuffle(anchor_idxs)
+
+        positives = torch.zeros(
+            (batch_size, self.k, self._candidate_vectors.shape[1]),
+            dtype=self._candidate_vectors.dtype,
+            device=self._candidate_vectors.device,
+        )
+        for idx in range(n_batches):
+            start = idx * batch_size
+            end = (idx + 1) * batch_size
+
+            selected_idxs = anchor_idxs[start:end]
+            anchor = self._candidate_vectors[selected_idxs, :]
+
+            for batch_inner_idx in range(batch_size):
+                torch.index_select(
+                    self._candidate_vectors,
+                    0,
+                    self._candidate_self_knn[selected_idxs[batch_inner_idx], :self.k],
+                    out=positives[batch_inner_idx, :, :],
+                )
+            yield anchor, positives
