@@ -207,7 +207,7 @@ def get_learner_from_args(args, hashing, data, logger):
     elif args.learner_type == "proposed":
         lambda1 = args.lambda1
         logger.meta(params={
-            "learner_type": "vqvae",
+            "learner_type": "proposed",
             "learner_args": f"train_k=10 l1={lambda1}",
         })
         learner = ProposedTrainer(
