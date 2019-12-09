@@ -54,6 +54,8 @@ class ProposedTrainer:
         global_step = 0
         best_recall = 0.
         best_query_size = float("Inf")
+        # qs_mask = (1. - torch.eye(batch_size, dtype=torch.float32)
+        n = self._candidate_vectors.shape[0]
         for _ in range(100):
             for sampled_batch in dataset.batch_generator(batch_size, True):
                 global_step += 1
@@ -66,20 +68,33 @@ class ProposedTrainer:
                     sampled_batch[1].view(-1, sampled_batch[0].shape[-1])
                 ).view(batch_size, -1, hashed_anchor.shape[-1])
 
+                sampled_candidate_vectors = self._candidate_vectors_gpu[np.random.randint(0, n, (4096,)), :]
+                hashed_candidates = self._hashing.predict(sampled_candidate_vectors)
+
                 positive_loss = self._hashing._distance_func.row_pairwise(
                     hashed_anchor[:, None, :],
                     hashed_positives,
-                ).mean()
+                ).sum(dim=1).mean()
+                # positive_loss = 0
                 # knns should have smaller code distance
 
-                query_size_loss = torch.log(1 + self._hashing._distance_func.pairwise(
-                    hashed_anchor,
-                    hashed_anchor,
-                )).mean()
+                query_index = self._hashing.hash(sampled_batch[0])
+                candidate_index = self._hashing.hash(sampled_candidate_vectors)
+                query_mask = np.equal(*np.meshgrid(query_index, candidate_index, copy=False, indexing='ij'))
+                query_mask = torch.from_numpy(query_mask).float().cuda()
+                distances = self._hashing._distance_func.pairwise(
+                    hashed_anchor.detach(),
+                    hashed_candidates,
+                )
+                masked_distances = distances * query_mask
+                # query_size_loss = torch.log(1e-10 + masked_distances).mean()
+                query_size_loss = masked_distances.sum(dim=1).mean()
                 # sampled anchors should be as far from each other as possible
                 loss = positive_loss - self._lambda1 * query_size_loss
 
                 self._logger.log("training/loss", loss.data.cpu(), global_step)
+                self._logger.log("training/positive_loss", positive_loss.data.cpu(), global_step)
+                self._logger.log("training/query_size_loss", query_size_loss.data.cpu(), global_step)
                 loss.backward()
                 optimizer.step()
                 if global_step % test_every_updates == 0:
