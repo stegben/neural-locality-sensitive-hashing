@@ -6,8 +6,30 @@ import numpy as np
 
 from nlsh.metrics import calculate_recall
 from nlsh.indexer import Indexer
-from nlsh.learning.datasets import OnePass
-from nlsh.learning.losses import contrastive_loss
+
+
+class OnePass:
+
+    def __init__(self, candidate_vectors):
+        self._candidate_vectors = candidate_vectors
+        self.n_candidates = self._candidate_vectors.shape[0]
+
+    def __len__(self):
+        return self.n_candidates
+
+    def batch_generator(self, batch_size, shuffle=False):
+        idxs = np.arange(len(self))
+        if shuffle:
+            np.random.shuffle(idxs)
+
+        n_batches = len(self) // batch_size
+
+        for batch_idx in range(n_batches):
+            start = batch_idx * batch_size
+            end = (batch_idx + 1) * batch_size
+
+            vector = self._candidate_vectors[idxs[start:end], :]
+            yield vector
 
 
 class VQVAE:

@@ -5,9 +5,57 @@ import numpy as np
 
 from nlsh.metrics import calculate_recall
 from nlsh.indexer import Indexer
-from nlsh.learning.datasets import KNearestNeighborTriplet
-from nlsh.learning.losses import triplet_loss
 
+
+def triplet_loss(
+        anchor,  # (n, d)
+        pos,  # (n, d)
+        neg,  # (n, d)
+        distance_func,
+        margin=0.1,
+    ):
+    d_pos = distance_func(anchor, pos)  # (n)
+    d_neg = distance_func(anchor, neg)  # (n)
+    loss_vec = torch.clamp(d_pos - d_neg + margin, min=0)
+    return torch.mean(loss_vec)
+
+
+class KNearestNeighborTriplet:
+
+    def __init__(
+            self,
+            candidate_vectors,
+            candidate_self_knn,
+            k=None,
+        ):
+        self._candidate_vectors = candidate_vectors
+        self._candidate_self_knn = candidate_self_knn
+
+        self.k = k or candidate_self_knn.shape[1]
+        self.n_candidates = self._candidate_vectors.shape[0]
+
+    def __len__(self):
+        return self.n_candidates
+
+    def batch_generator(self, batch_size, shuffle=False):
+        n_batches = len(self) // batch_size
+
+        anchor_idxs = np.arange(len(self))
+        if shuffle:
+            np.random.shuffle(anchor_idxs)
+
+        for idx in range(n_batches):
+            start = idx * batch_size
+            end = (idx + 1) * batch_size
+
+            anchor = self._candidate_vectors[anchor_idxs[start:end], :]
+
+            knn_idxs = self._candidate_self_knn[anchor_idxs[start:end], np.random.randint(0, self.k, (batch_size,))]
+            positive = self._candidate_vectors[knn_idxs, :]
+
+            random_idxs = np.random.randint(0, len(self), (batch_size,))
+            negative = self._candidate_vectors[random_idxs, :]
+            yield anchor, positive, negative
 
 class TripletTrainer:
 

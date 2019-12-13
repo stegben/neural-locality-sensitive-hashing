@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from ..datasets import KNearestNeighborAllOut
+from ..proposed import KNearestNeighborAllOut
 
 
 def test_knn_all_out():
