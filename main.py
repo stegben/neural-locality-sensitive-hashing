@@ -17,7 +17,6 @@ from nlsh.trainers import (
     ProposedTrainer,
 )
 
-from nlsh.learning.datasets import KNearestNeighborTriplet
 from nlsh.learning.distances import (
     JSD_categorical,
     MVBernoulliL2,
