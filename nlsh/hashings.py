@@ -10,24 +10,29 @@ class MultivariateBernoulli:
 
     class _Hasher(nn.Module):
 
-        def __init__(self, encoder, hash_size):
+        def __init__(self, encoder, hash_size, tanh_output=False):
             super().__init__()
             self._encoder = encoder
+            self._tanh_output = tanh_output
             self.output_layer = nn.Linear(encoder.output_dim, hash_size)
 
         def forward(self, x):
             x = self._encoder(x)
-            x = torch.sigmoid(self.output_layer(x))
+            if self._tanh_output:
+                x = torch.tanh(self.output_layer(x))
+            else:
+                x = torch.sigmoid(self.output_layer(x))
             return x
 
-    def __init__(self, encoder, hash_size, distance_func):
+    def __init__(self, encoder, hash_size, distance_func, tanh_output=False):
         self._encoder = encoder
         self._hash_size = hash_size
 
         # TODO: refactor. distance_dunc should not be the member of hashings
         self._distance_func = distance_func
+        self._tanh_output = tanh_output
 
-        self._hasher = self._Hasher(self._encoder, self._hash_size).cuda()
+        self._hasher = self._Hasher(self._encoder, self._hash_size, tanh_output).cuda()
 
     def predict(self, x):
         return self._hasher(x)
@@ -58,12 +63,31 @@ class MultivariateBernoulli:
             out = (out << 1) | bit
         return out
 
-    def hash(self, query_vectors):
+    def hash(self, query_vectors, n=1):
         probs = self._hasher(query_vectors)
-        codes = (probs > 0.5).tolist()
+        if self._tanh_output:
+            probs = probs / 2. + 0.5
+        dist = torch.distributions.Bernoulli(probs)
+
+        base_codes = (dist.probs > 0.5).unsqueeze_(1)
+
+        if n == 1:
+            # hard hash
+            codes = base_codes.tolist()
+        elif n > 1:
+            # sample hash
+            # (batch_size, n, code_size)
+            sampled_codes = dist.sample((n - 1,)).int().permute(1, 0, 2)
+            codes = torch.cat((base_code, sampled_codes), dim=1).tolist()
+        else:
+            raise ValueError(f"`n` should be positive integer, but got {n}")
+
         hash_results = []
-        for binarr in codes:
-            hash_results.append(self._binarr_to_int(binarr))
+        for binarrs in codes:
+            hashes = []
+            for binarr in binarrs:
+                hashes.append(self._binarr_to_int(binarr))
+            hash_results.append(set(hashes))
         return hash_results
 
 
