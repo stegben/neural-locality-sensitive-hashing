@@ -22,6 +22,7 @@ from nlsh.learning.distances import (
     MVBernoulliL2,
     MVBernoulliKLDivergence,
     MVBernoulliCrossEntropy,
+    MVBernoulliTanhCosine,
 )
 
 load_dotenv()
@@ -100,6 +101,18 @@ def get_hashing_from_args(args, enc):
                 enc,
                 hash_size,
                 MVBernoulliCrossEntropy(epsilon=1e-20),
+            )
+        else:
+            raise RuntimeError(f"{distance_type} is not valid for {hashing_type}")
+
+    elif hashing_type == "MultivariateBernoulliTanh":
+        hash_size = args.hash_size
+        if distance_type == "Cosine":
+            return MultivariateBernoulli(
+                enc,
+                hash_size,
+                MVBernoulliTanhCosine(),
+                tanh_output=True,
             )
         else:
             raise RuntimeError(f"{distance_type} is not valid for {hashing_type}")
@@ -243,13 +256,13 @@ def nlsh_argparse():
         "-ht",
         "--hashing_type",
         default='MultivariateBernoulli',
-        choices=("MultivariateBernoulli", "Categorical"),
+        choices=("MultivariateBernoulli", "MultivariateBernoulliTanh", "Categorical"),
     )
     parser.add_argument(
         "-dt",
         "--distance_type",
         default='L2',
-        choices=("L2", "JS", "KL", "CrossEntropy"),
+        choices=("L2", "JS", "KL", "CrossEntropy", "Cosine"),
     )
     parser.add_argument(
         "--data_id",
