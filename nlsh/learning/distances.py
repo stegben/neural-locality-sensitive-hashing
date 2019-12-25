@@ -231,3 +231,39 @@ class MVBernoulliL2(_Distance):
         outputs d: (n, m, p)
         """
         return torch.cdist(p, q, p=2)
+
+
+class MVBernoulliTanhCosine(_Distance):
+
+    def rowwise(self, p, q):
+        """
+        p: (n, k)
+        q: (n, k)
+
+        outputs d: (n)
+        """
+        return 1 - F.cosine_similarity(p, q)
+
+    def pairwise(self, p, q):
+        """
+        p: (n, k)
+        q: (m, k)
+
+        outputs d: (n, m)
+        """
+        p_normalized = p / p.norm(dim=1)[:, None]
+        q_normalized = q / q.norm(dim=1)[:, None]
+        cosine_similarity = torch.mm(p_normalized, q_normalized.T)
+        return 1 - cosine_similarity
+
+    def row_pairwise(self, p, q):
+        """
+        p: (n, m, k)
+        q: (n, p, k)
+
+        outputs d: (n, m, p)
+        """
+        p_normalized = p / p.norm(dim=2)[:, None]
+        q_normalized = q / q.norm(dim=2)[:, None]
+        cosine_similarity = torch.matmul(p_normalized, q_normalized.transpose(-1, -2))
+        return 1 - cosine_similarity
