@@ -199,7 +199,6 @@ class SiameseTrainer:
                     self._hashing.train_mode(False)
                     indexer = Indexer(
                         self._hashing,
-                        self._candidate_vectors,
                         self._candidate_vectors_gpu,
                         self._data.distance,
                     )
@@ -207,7 +206,7 @@ class SiameseTrainer:
                     self._logger.log("test/n_indexes", n_indexes, global_step)
                     std_index_rows = np.std([len(idxs) for idxs in indexer.index2row.values()])
                     self._logger.log("test/std_index_rows", std_index_rows, global_step)
-
+                    # import ipdb; ipdb.set_trace()
                     t1 = time()
                     recalls, n_candidates = indexer.query(self._validation_data, self._validation_data_gpu, k=K)
                     t2 = time()

@@ -97,7 +97,6 @@ class VQVAE:
                     # import ipdb; ipdb.set_trace()
                     indexer = Indexer(
                         self._hashing,
-                        self._candidate_vectors,
                         self._candidate_vectors_gpu,
                         self._data.distance,
                     )

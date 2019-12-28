@@ -26,9 +26,8 @@ def build_index(indexes, cuda=True):
 
 class Indexer:
 
-    def __init__(self, hashing, candidate_vectors, candidate_vectors_gpu, distance_func):
+    def __init__(self, hashing, candidate_vectors_gpu, distance_func):
         self._hashing = hashing
-        self._candidate_vectors = candidate_vectors
         self._candidate_vectors_gpu = candidate_vectors_gpu
         self._distance_func = distance_func
 
