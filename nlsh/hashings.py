@@ -78,7 +78,7 @@ class MultivariateBernoulli:
             # sample hash
             # (batch_size, n, code_size)
             sampled_codes = dist.sample((n - 1,)).int().permute(1, 0, 2)
-            codes = torch.cat((base_code, sampled_codes), dim=1).tolist()
+            codes = torch.cat((base_codes.int(), sampled_codes), dim=1).tolist()
         else:
             raise ValueError(f"`n` should be positive integer, but got {n}")
 

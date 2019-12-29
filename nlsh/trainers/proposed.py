@@ -137,7 +137,7 @@ class ProposedTrainer:
                 loss = positive_loss - self._lambda1 * query_size_loss
 
                 self._logger.log("training/loss", loss.data.cpu(), global_step)
-                self._logger.log("training/positive_loss", positive_loss.data.cpu(), global_step)
+                # self._logger.log("training/positive_loss", positive_loss.data.cpu(), global_step)
                 self._logger.log("training/query_size_loss", query_size_loss.data.cpu(), global_step)
                 loss.backward()
                 optimizer.step()

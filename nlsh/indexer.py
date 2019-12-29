@@ -53,34 +53,40 @@ class Indexer:
         hash_keys += hash_key
         return hash_keys
 
-    def query(self, query_vectors, query_vectors_gpu, k=10) -> List[List[int]]:
-        query_indexes = self.hash(query_vectors_gpu, hash_times=1)
+    def query(self, query_vectors, query_vectors_gpu, k=10, hash_times=10) -> List[List[int]]:
+        query_indexes = self.hash(query_vectors_gpu, hash_times=hash_times)
         recall_result = []
         n_candidates_result = []
         vector_buffer = torch.rand(self._candidate_vectors_gpu.shape).cuda()
         default_empty_rows = torch.LongTensor([]).cuda()
         for idx, qi in enumerate(query_indexes):
-            candidate_rows = self.index2row.get(list(qi)[0], default_empty_rows)
-
-            n_candidates = len(candidate_rows)
+            n_candidates = 0
             target_vector = query_vectors_gpu[idx, :]
+            buffer_start = 0
+            candidate_rows_list = []
+            for key in list(qi):
+                candidate_rows = self.index2row.get(key, default_empty_rows)
+                candidate_rows_list.append(candidate_rows)
+                n_candidates += len(candidate_rows)
+                buffer_end = buffer_start + n_candidates
 
-            # NOTE: indexing with tensor will create a copy
-            # use index_select will directly move data from one to
-            # another. This highly reduce the memory allocation overhead
-            torch.index_select(
-                self._candidate_vectors_gpu,
-                0,
-                candidate_rows,
-                out=vector_buffer[:n_candidates, :],
-            )
+                # NOTE: indexing with tensor will create a copy
+                # use index_select will directly move data from one to
+                # another. This highly reduce the memory allocation overhead
+                torch.index_select(
+                    self._candidate_vectors_gpu,
+                    0,
+                    candidate_rows,
+                    out=vector_buffer[buffer_start:buffer_end, :],
+                )
+                buffer_start = buffer_end
             distance = self._distance_func(
                 target_vector,
-                vector_buffer[:n_candidates, :],
+                vector_buffer[:buffer_end, :],
             )
             try:
                 topk_idxs = distance.topk(k, largest=False)[1].tolist()
-                topk_idxs = [int(candidate_rows[i]) for i in topk_idxs]
+                topk_idxs = [int(torch.cat(candidate_rows_list)[i]) for i in topk_idxs]
             except RuntimeError:
                 topk_idxs = candidate_rows
             n_candidates_result.append(n_candidates)
