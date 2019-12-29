@@ -67,8 +67,9 @@ class Indexer:
             for key in list(qi):
                 candidate_rows = self.index2row.get(key, default_empty_rows)
                 candidate_rows_list.append(candidate_rows)
-                n_candidates += len(candidate_rows)
-                buffer_end = buffer_start + n_candidates
+                current_key_candidates = len(candidate_rows)
+                n_candidates += current_key_candidates
+                buffer_end = buffer_start + current_key_candidates
 
                 # NOTE: indexing with tensor will create a copy
                 # use index_select will directly move data from one to
