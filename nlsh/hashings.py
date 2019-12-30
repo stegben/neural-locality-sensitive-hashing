@@ -41,6 +41,10 @@ class MultivariateBernoulli:
     def distance(self):
         return self._distance_func
 
+    @property
+    def output_dim(self):
+        return self._hash_size
+
     def parameters(self):
         return self._hasher.parameters()
 
