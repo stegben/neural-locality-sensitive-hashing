@@ -15,6 +15,7 @@ from nlsh.trainers import (
     SiameseTrainer,
     VQVAE,
     ProposedTrainer,
+    AE,
 )
 
 from nlsh.learning.distances import (
@@ -230,6 +231,16 @@ def get_learner_from_args(args, hashing, data, logger):
             train_k=10,
             lambda1=lambda1,
         )
+    elif args.learner_type == "ae":
+        logger.meta(params={
+            "learner_type": "ae",
+        })
+        learner = AE(
+            hashing,
+            data,
+            MODEL_SAVE_DIR,
+            logger=logger,
+        )
     return learner
 
 
@@ -278,7 +289,7 @@ def nlsh_argparse():
     )
     parser.add_argument(
         "--learner_type",
-        choices=("triplet", "siamese", "vqvae", "proposed"),
+        choices=("triplet", "siamese", "vqvae", "proposed", "ae"),
     )
     parser.add_argument(
         "-tm",
