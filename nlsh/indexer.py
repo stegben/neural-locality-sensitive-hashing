@@ -53,15 +53,15 @@ class Indexer:
         hash_keys += hash_key
         return hash_keys
 
-    def query(self, query_vectors, query_vectors_gpu, k=10, hash_times=10) -> List[List[int]]:
-        query_indexes = self.hash(query_vectors_gpu, hash_times=hash_times)
+    def query(self, query_vectors, k=10, hash_times=10) -> List[List[int]]:
+        query_indexes = self.hash(query_vectors, hash_times=hash_times)
         recall_result = []
         n_candidates_result = []
         vector_buffer = torch.rand(self._candidate_vectors_gpu.shape).cuda()
         default_empty_rows = torch.LongTensor([]).cuda()
         for idx, qi in enumerate(query_indexes):
             n_candidates = 0
-            target_vector = query_vectors_gpu[idx, :]
+            target_vector = query_vectors[idx, :]
             buffer_start = 0
             candidate_rows_list = []
             for key in list(qi):
