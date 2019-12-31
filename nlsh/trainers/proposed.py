@@ -83,12 +83,12 @@ class ProposedTrainer(Trainer):
         return dataset
 
     def _get_loss(self, batch):
-        batch_size = batch.shape[0]
+        batch_size = batch[0].shape[0]
         hashed_anchor = self._hashing.predict(batch[0])
         hashed_positives = self._hashing.predict(
             batch[1].view(-1, batch[0].shape[-1])
         ).view(batch_size, -1, hashed_anchor.shape[-1])
-
+        n = self._candidate_vectors_gpu.shape[0]
         sampled_candidate_vectors = self._candidate_vectors_gpu[np.random.randint(0, n, (1024,)), :]
         hashed_candidates = self._hashing.predict(sampled_candidate_vectors)
 
