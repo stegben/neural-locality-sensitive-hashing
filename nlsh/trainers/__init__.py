@@ -4,6 +4,7 @@ from .triplet import TripletTrainer
 # TODO: new idea
 from .vqvae import VQVAE
 from .proposed import ProposedTrainer
+from .ae import AE
 
 # TODO: reporduce
 # from .kmeans import KMeansTrainer
