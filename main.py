@@ -7,6 +7,7 @@ import random
 from dotenv import load_dotenv
 
 from encoders import MultiLayerRelu
+import nlsh
 from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove
 from nlsh.loggers import TensorboardX, CometML, WandB, NullLogger

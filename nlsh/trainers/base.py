@@ -45,7 +45,10 @@ class Trainer(abc.ABC):
         self._validation_data = torch.from_numpy(validation_data)
         self._validation_data_gpu = self._validation_data.cuda()
 
-        dataset = self._get_dataset(self._candidate_vectors_gpu, candidate_self_knn)
+        dataset = self._get_dataset(
+            self._candidate_vectors_gpu,
+            torch.from_numpy(candidate_self_knn).cuda(),
+        )
         self._prepare_extra_models()
 
         optimizer = torch.optim.Adam(

@@ -37,7 +37,7 @@ class Indexer:
         indexes = self.hash(self._candidate_vectors_gpu, hash_times=1)
         self.index2row = build_index(indexes)
 
-    def hash(self, query_vectors, batch_size=128, hash_times=1):
+    def hash(self, query_vectors, batch_size=4096, hash_times=1):
         hash_keys = []
 
         n = query_vectors.shape[0]
@@ -57,7 +57,7 @@ class Indexer:
         query_indexes = self.hash(query_vectors, hash_times=hash_times)
         recall_result = []
         n_candidates_result = []
-        vector_buffer = torch.rand(self._candidate_vectors_gpu.shape).cuda()
+        vector_buffer = torch.empty_like(self._candidate_vectors_gpu).cuda()
         default_empty_rows = torch.LongTensor([]).cuda()
         for idx, qi in enumerate(query_indexes):
             n_candidates = 0
@@ -85,11 +85,12 @@ class Indexer:
                 target_vector,
                 vector_buffer[:buffer_end, :],
             )
+            concat_candidate_rows = torch.cat(candidate_rows_list)
             try:
-                topk_idxs = distance.topk(k, largest=False)[1].tolist()
-                topk_idxs = [int(torch.cat(candidate_rows_list)[i]) for i in topk_idxs]
+                topk_idxs = distance.topk(k, largest=False)[1]
+                topk_idxs = concat_candidate_rows[topk_idxs].tolist()
             except RuntimeError:
-                topk_idxs = candidate_rows
+                topk_idxs = candidate_rows.tolist()
             n_candidates_result.append(n_candidates)
             recall_result.append(topk_idxs)
         return recall_result, n_candidates_result

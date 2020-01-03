@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from nlsh.utils import hash_codes
 
 class MultivariateBernoulli:
 
@@ -61,37 +62,32 @@ class MultivariateBernoulli:
         else:
             self._hasher.eval()
 
-    def _binarr_to_int(self, binarr):
-        out = 0
-        for bit in binarr:
-            out = (out << 1) | bit
-        return out
-
     def hash(self, query_vectors, n=1):
         probs = self._hasher(query_vectors)
         if self._tanh_output:
             probs = probs / 2. + 0.5
         dist = torch.distributions.Bernoulli(probs)
 
-        base_codes = (dist.probs > 0.5).unsqueeze_(1)
+        base_codes = (dist.probs > 0.5).unsqueeze_(1).int()
 
         if n == 1:
             # hard hash
-            codes = base_codes.tolist()
+            codes = base_codes.cpu().numpy()
         elif n > 1:
             # sample hash
             # (batch_size, n, code_size)
-            sampled_codes = dist.sample((n - 1,)).int().permute(1, 0, 2)
-            codes = torch.cat((base_codes.int(), sampled_codes), dim=1).tolist()
+            sampled_codes = dist.sample((n - 1,)).int().permute(1, 0, 2).int()
+            codes = torch.cat((base_codes.int(), sampled_codes), dim=1).cpu().numpy()
         else:
             raise ValueError(f"`n` should be positive integer, but got {n}")
 
-        hash_results = []
-        for binarrs in codes:
-            hashes = []
-            for binarr in binarrs:
-                hashes.append(self._binarr_to_int(binarr))
-            hash_results.append(set(hashes))
+        hash_results = hash_codes(codes)
+        # hash_results = []
+        # for binarrs in codes:
+        #     hashes = []
+        #     for binarr in binarrs:
+        #         hashes.append(binarr_to_int(binarr))
+        #     hash_results.append(set(hashes))
         return hash_results
 
 

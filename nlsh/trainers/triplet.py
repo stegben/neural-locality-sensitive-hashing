@@ -39,9 +39,12 @@ class KNearestNeighborTriplet:
     def batch_generator(self, batch_size, shuffle=False):
         n_batches = len(self) // batch_size
 
-        anchor_idxs = np.arange(len(self))
         if shuffle:
-            np.random.shuffle(anchor_idxs)
+            anchor_idxs = torch.randperm(len(self)).cuda()
+        else:
+            anchor_idxs = torch.arange(len(self)).cuda()
+        knn_col_idxs = torch.randint(0, self.k, (len(self),))
+        negative_random_idxs = torch.randint(0, len(self), (len(self),))
 
         for idx in range(n_batches):
             start = idx * batch_size
@@ -49,11 +52,10 @@ class KNearestNeighborTriplet:
 
             anchor = self._candidate_vectors[anchor_idxs[start:end], :]
 
-            knn_idxs = self._candidate_self_knn[anchor_idxs[start:end], np.random.randint(0, self.k, (batch_size,))]
+            knn_idxs = self._candidate_self_knn[anchor_idxs[start:end], knn_col_idxs[start:end]]
             positive = self._candidate_vectors[knn_idxs, :]
 
-            random_idxs = np.random.randint(0, len(self), (batch_size,))
-            negative = self._candidate_vectors[random_idxs, :]
+            negative = self._candidate_vectors[negative_random_idxs[start:end], :]
             yield anchor, positive, negative
 
 class TripletTrainer(Trainer):
