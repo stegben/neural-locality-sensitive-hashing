@@ -68,6 +68,7 @@ class TripletTrainer(Trainer):
             logger,
             lambda1=0.001,
             margin=0.1,
+            positive_k=None,
         ):
         self._hashing = hashing
         self._data = data
@@ -75,6 +76,7 @@ class TripletTrainer(Trainer):
         self._logger = logger
         self._lambda1 = lambda1
         self._margin = margin
+        self._positive_k = positive_k
 
     def _get_dataset(self, vectors, self_knn):
         """
@@ -84,7 +86,7 @@ class TripletTrainer(Trainer):
         dataset = KNearestNeighborTriplet(
             vectors,
             self_knn,
-            k=100,
+            k=self._positive_k,
         )
         return dataset
 
