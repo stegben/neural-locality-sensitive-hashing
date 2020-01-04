@@ -62,7 +62,7 @@ def nearest_exclude_positive(vectors, distance_function, positive_indexes):
             batch_results.append(nearest_negative_sample_idx)
 
         start = n_batches * batch_size
-        last_batch_size = n - start + 1
+        last_batch_size = n - start
         diagnal_idx_for_scatter = torch.arange(last_batch_size).reshape(last_batch_size, 1).cuda()
         last_batch = vectors[start:, :]
         distances = distance_function(last_batch, vectors)
