@@ -44,7 +44,7 @@ def batch_execute(batchable, execution, batch_size, concatenator):
 def nearest_exclude_positive(vectors, distance_function, positive_indexes):
     batch_results = []
 
-    batch_size = 8
+    batch_size = 32
     n = vectors.shape[0]
     n_batches = n // batch_size
 
@@ -62,7 +62,8 @@ def nearest_exclude_positive(vectors, distance_function, positive_indexes):
             batch_results.append(nearest_negative_sample_idx)
 
         start = n_batches * batch_size
-        diagnal_idx_for_scatter = torch.arange(n - start + 1).reshape(batch_size, 1).cuda()
+        last_batch_size = n - start + 1
+        diagnal_idx_for_scatter = torch.arange(last_batch_size).reshape(last_batch_size, 1).cuda()
         last_batch = vectors[start:, :]
         distances = distance_function(last_batch, vectors)
         distances.scatter_(1, positive_indexes[start:, :], distances.max())
