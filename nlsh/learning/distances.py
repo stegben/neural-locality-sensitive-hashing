@@ -221,7 +221,11 @@ class MVBernoulliL2(_Distance):
 
         outputs d: (n, m)
         """
-        return torch.cdist(p, q, p=2)
+        # return torch.cdist(p, q, p=2)
+        p_norm = p.pow(2).sum(dim=-1, keepdim=True)
+        q_norm = q.pow(2).sum(dim=-1, keepdim=True)
+        result = torch.addmm(q_norm.transpose(-2, -1), p, q.transpose(-2, -1), alpha=-2).add_(p_norm)
+        return result
 
     def row_pairwise(self, p, q):
         """
