@@ -174,7 +174,7 @@ def get_learner_from_args(args, hashing, data, logger):
         triplet_positive_k = args.triplet_positive_k
         logger.meta(params={
             "learner_type": "triplet",
-            "learner_args": f"m={margin} l1={lambda1}",
+            "learner_args": f"m={margin} l1={lambda1} pk={triplet_positive_k}",
             "triplet_margin": margin,
             "triplet_positive_k": triplet_positive_k,
             "lambda1": lambda1,
