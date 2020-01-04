@@ -44,7 +44,6 @@ class Trainer(abc.ABC):
         self._candidate_vectors_gpu = torch.from_numpy(candidate_vectors).cuda()
         self._validation_data = torch.from_numpy(validation_data)
         self._validation_data_gpu = self._validation_data.cuda()
-
         dataset = self._get_dataset(
             self._candidate_vectors_gpu,
             torch.from_numpy(candidate_self_knn).cuda(),
@@ -61,7 +60,7 @@ class Trainer(abc.ABC):
         best_recall = 0.
         best_query_size = float("Inf")
 
-        for _ in range(300):
+        for _ in range(100):
             for sampled_batch in dataset.batch_generator(batch_size, True):
                 global_step += 1
 
