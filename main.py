@@ -171,10 +171,12 @@ def get_learner_from_args(args, hashing, data, logger):
     if args.learner_type == "triplet":
         lambda1 = args.lambda1
         margin = args.triplet_margin
+        triplet_positive_k = args.triplet_positive_k
         logger.meta(params={
             "learner_type": "triplet",
             "learner_args": f"m={margin} l1={lambda1}",
             "triplet_margin": margin,
+            "triplet_positive_k": triplet_positive_k,
             "lambda1": lambda1,
         })
         learner = TripletTrainer(
@@ -184,6 +186,7 @@ def get_learner_from_args(args, hashing, data, logger):
             logger=logger,
             lambda1=lambda1,
             margin=margin,
+            positive_k=triplet_positive_k,
         )
     elif args.learner_type == "siamese":
         lambda1 = args.lambda1
@@ -296,6 +299,12 @@ def nlsh_argparse():
         "-tm",
         "--triplet_margin",
         type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "-tpk",
+        "--triplet_positive_k",
+        type=int,
         default=None,
     )
     parser.add_argument(
