@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 from nlsh.utils import hash_codes
 
+
 class MultivariateBernoulli:
 
     class _Hasher(nn.Module):
