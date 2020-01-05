@@ -164,6 +164,45 @@ class MVBernoulliKLDivergence(_Distance):
         return _row_pairwise_KL_multivariate_bernoulli(p, q, self._epsilon)
 
 
+class MVBernoulliMeanKLDivergence(_Distance):
+
+    def __init__(self, epsilon):
+        self._epsilon = epsilon
+
+    def rowwise(self, p, q):
+        """
+        p: (n, k)
+        q: (n, k)
+
+        outputs d: (n)
+        """
+        KL_pq = KL_multivariate_bernoulli(p, q, self._epsilon)
+        KL_qp = KL_multivariate_bernoulli(q, p, self._epsilon)
+        return (KL_pq + KL_qp) / 2
+
+    def pairwise(self, p, q):
+        """
+        p: (n, k)
+        q: (m, k)
+
+        outputs d: (n, m)
+        """
+        KL_pq = _pairwise_KL_multivariate_bernoulli(p, q, self._epsilon)
+        KL_qp = _pairwise_KL_multivariate_bernoulli(q, p, self._epsilon)
+        return (KL_pq + KL_qp) / 2
+
+    def row_pairwise(self, p, q):
+        """
+        p: (n, m, k)
+        q: (n, p, k)
+
+        outputs d: (n, m, p)
+        """
+        KL_pq = _row_pairwise_KL_multivariate_bernoulli(p, q, self._epsilon)
+        KL_qp = _row_pairwise_KL_multivariate_bernoulli(q, p, self._epsilon)
+        return (KL_pq + KL_qp) / 2
+
+
 class MVBernoulliCrossEntropy(_Distance):
 
     def __init__(self, epsilon):
