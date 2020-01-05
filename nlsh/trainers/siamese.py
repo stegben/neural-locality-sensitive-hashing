@@ -46,7 +46,7 @@ class KNearestNeighborSiamese:
         label_all = torch.from_numpy(label_all_np).long().cuda()
 
         negative_idx_all = np.random.randint(0, len(self), (len(self),))
-        # negative_idx_all = torch.from_numpy(negative_idx_all).long().cuda()
+        negative_idx_all = torch.from_numpy(negative_idx_all).long().cuda()
 
         anchor_idxs = np.arange(len(self))
         if shuffle:
@@ -61,9 +61,8 @@ class KNearestNeighborSiamese:
             ramdomly_selected_positive_idx = np.random.randint(0, self.k, (batch_size,))
             positive_idxs = self._candidate_self_knn[anchor_idxs[start:end], ramdomly_selected_positive_idx]
             negative_idxs = negative_idx_all[start:end]
-            label = label_all_np[start:end]
             label_output = label_all[start:end]
-            other_idx = positive_idxs * label + negative_idxs * (1 - label)
+            other_idx = positive_idxs * label_output + negative_idxs * (1 - label_output)
             other = self._candidate_vectors[other_idx, :]
             yield anchor, other, label_output
 
