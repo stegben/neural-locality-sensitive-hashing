@@ -89,29 +89,33 @@ class ProposedTrainer(Trainer):
             batch[1].view(-1, batch[0].shape[-1])
         ).view(batch_size, -1, hashed_anchor.shape[-1])
         n = self._candidate_vectors_gpu.shape[0]
-        sampled_candidate_vectors = self._candidate_vectors_gpu[np.random.randint(0, n, (1024,)), :]
+        sampled_candidate_vectors = self._candidate_vectors_gpu[np.random.randint(0, n, (65536,)), :]
         hashed_candidates = self._hashing.predict(sampled_candidate_vectors)
 
+        # knns should have smaller code distance
         positive_loss = self._hashing._distance_func.row_pairwise(
-            hashed_anchor[:, None, :].detach(),
+            hashed_anchor[:, None, :],
             hashed_positives,
         ).sum(dim=1).mean()
-        # positive_loss = 0
-        # knns should have smaller code distance
 
         query_index = self._hashing.hash(batch[0], n=1)
         query_index = [list(qi)[0] for qi in query_index]
         candidate_index = self._hashing.hash(sampled_candidate_vectors, n=1)
         candidate_index = [list(qi)[0] for qi in candidate_index]
-        query_mask = np.equal(*np.meshgrid(query_index, candidate_index, copy=False, indexing='ij'))
-        query_mask = torch.from_numpy(query_mask).float().cuda()
-        distances = self._hashing._distance_func.pairwise(
-            hashed_anchor,
-            hashed_candidates.detach(),
-        )
-        masked_distances = distances * query_mask
+
+        # query_mask = np.equal(*np.meshgrid(query_index, candidate_index, copy=False, indexing='ij'))
+        # query_mask = torch.from_numpy(query_mask).float().cuda()
+        # distances = self._hashing._distance_func.pairwise(
+        #     hashed_anchor,
+        #     hashed_candidates.detach(),
+        # )
+        # masked_distances = distances * query_mask
         # query_size_loss = torch.log(1e-10 + masked_distances).mean()
-        query_size_loss = masked_distances.sum(dim=1).mean()
+        # query_size_loss = masked_distances.sum(dim=1).mean()
+
+        distances = torch.min(torch.abs(hashed_candidates - 0.5), axis=1)[0]
+        distances = distances * torch.from_numpy(np.isin(candidate_index, query_index, invert=True)).cuda()
+        query_size_loss = distances.sum()
         # sampled anchors should be as far from each other as possible
-        loss = positive_loss - self._lambda1 * query_size_loss
+        loss = positive_loss + self._lambda1 * query_size_loss
         return loss
