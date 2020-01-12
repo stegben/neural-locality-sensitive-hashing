@@ -44,6 +44,11 @@ class Trainer(abc.ABC):
         self._candidate_vectors_gpu = torch.from_numpy(candidate_vectors).cuda()
         self._validation_data = torch.from_numpy(validation_data)
         self._validation_data_gpu = self._validation_data.cuda()
+
+        sampled_index = np.random.randint(candidate_vectors.shape[0], size=(10000,))
+        sampled_train = self._candidate_vectors_gpu[sampled_index, :]
+        sampled_train_ground_truth = candidate_self_knn[sampled_index, :K]
+
         dataset = self._get_dataset(
             self._candidate_vectors_gpu,
             torch.from_numpy(candidate_self_knn).cuda(),
@@ -84,6 +89,7 @@ class Trainer(abc.ABC):
                     std_index_rows = np.std([len(idxs) for idxs in indexer.index2row.values()])
                     self._logger.log("test/std_index_rows", std_index_rows, global_step)
 
+                    # Validation
                     t1 = time()
                     recalls, n_candidates = indexer.query(self._validation_data_gpu, k=K)
                     t2 = time()
@@ -100,3 +106,10 @@ class Trainer(abc.ABC):
                     self._logger.log("test/query_size", current_query_size, global_step)
                     qps = self._validation_data.shape[0] / query_time
                     self._logger.log("test/qps", qps, global_step)
+
+                    # Evaluate training set (see if overfit)
+                    recalls, n_candidates = indexer.query(sampled_train, k=K)
+                    train_recall = calculate_recall(list(sampled_train_ground_truth), recalls, np.mean)
+                    train_query_size = np.mean(n_candidates)
+                    self._logger.log("training/recall", train_recall, global_step)
+                    self._logger.log("training/query_size", train_query_size, global_step)
