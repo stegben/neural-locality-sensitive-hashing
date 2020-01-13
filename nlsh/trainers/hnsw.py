@@ -24,11 +24,6 @@ class HierarchicalNavigableSmallWorldGraph:
     def insert(self, idx, vector):
         pass
 
-    def search(self, query_vectors, k=10):
-        idxs = []
-        query_size = 0
-        return (idxs, query_size)
-
     def search_nn(self, nswg: nx.Graph, enter_node: int, q: np.ndarray):
         cur_node = enter_node
         smallest_dist = self._data.distance(q, self.candidate_vectors[enter_node, :])
@@ -55,38 +50,36 @@ class HierarchicalNavigableSmallWorldGraph:
             k: int,
         ):
         enter_distance = self._data.distance(q, self.candidate_vectors[enter_node, :])[0]
+        calculated = 1
         candidates = PriorityQueue()
         candidates.put((enter_distance, enter_node))
-        results = PriorityQueue(maxsize=ef)
+        results = PriorityQueue()
         results.put((-enter_distance, enter_node))
         visited = set([enter_node])
 
         while not candidates.empty():
-            cand_smallest_dist, cand_best_node = candidates.queue[0]
-            cur_largest_dist, cur_worst_node = results.queue[0]
-            cur_largest_dist = -cur_lar
+            cand_smallest_dist, cand_best_node = candidates.get(0)
+            cur_largest_dist, _ = results.queue[0]
+            cur_largest_dist = -cur_largest_dist
 
             if cur_largest_dist < cand_smallest_dist:
                 break
 
             for neighbor in nswg.neighbor(cand_best_node):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    cur_dist = self._data.distance(q, self.candidate_vectors[neighbor, :])[0]
+                    calculated += 1
+                    cur_largest_dist, _ = results.queue[0]
+                    cur_largest_dist = -cur_largest_dist
 
+                    if (len(results.queue < ef)) or (cur_dist < cur_largest_dist):
+                        candidates.put((cur_dist, neighbor))
+                        results.put((-cur_dist, neighbor))
 
-        cur_node = enter_node
-        smallest_dist = self._data.distance(q, self.candidate_vectors[enter_node, :])
-        count = 1
-        changed = True
-        while changed:
-            changed = False
+                    if len(results.queue) > ef:
+                        results.get()
 
-            for node in nswg.neighbors(cur_node):
-                cur_dist = self._data.distance(q, self.candidate_vectors[enter_node, :])
-                if cur_dist < smallest_dist:
-                    changed = True
-                    smallest_dist = cur_dist
-                    cur_node = node
-                count += 1
-        return cur_node, count
 
     def fit(self, K, batch_size=1024, learning_rate=3e-4, test_every_updates=1000):
         # Validation
