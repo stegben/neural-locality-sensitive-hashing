@@ -1,4 +1,5 @@
 from time import time
+import math
 from queue import PriorityQueue
 
 import numpy as np
@@ -12,6 +13,14 @@ class HierarchicalNavigableSmallWorldGraph:
     def __init__(self, data, *args, **kwargs):
         self._data = data
         self.graphs = []
+        self.default_enter_point = -1
+
+        self._max_layers = 10
+        for _ in range(self._max_layers):
+            self.graphs.append(nx.Graph())
+        self._max_connections = 100
+        self._max_connections_per_layer = 20
+        self._ef_construction = 100
 
         if not self._data.prepared:
             self._data.load()
@@ -21,10 +30,40 @@ class HierarchicalNavigableSmallWorldGraph:
         self.candidate_self_knn = self._data.training_self_knn
         self.ground_truth = self._data.ground_truth[:, :K]
 
-    def insert(self, idx, vector):
-        pass
+    def insert(self, idx, value):
+        l = math.floor(-math.log(random.random()) * self._max_layers)
+        starting_layer = l if l < self._max_layers else (self._max_layers - 1)
+        enter_node = self.default_enter_point
 
-    def search_nn(self, nswg: nx.Graph, enter_node: int, q: np.ndarray):
+        if self.default_enter_point == -1:  # inserting the first point
+
+            self.default_enter_point = idx
+            return
+
+        # get enter point from the starting layer
+        for graph in reversed(self.graphs[starting_layer: self._max_layers]):
+            enter_node, _ = self.search_nn(graph, enter_node, q)
+
+        # start connecting each layers
+        for graph in reversed(self.graphs[:self.starting_layer]):
+            results, _ = self.search_layer(graph, )
+            to_be_connected = [results.get()[1] for _ in range(self._max_connections)]
+            graph.add_node(idx)
+            for node in to_be_connected:
+                graph.add_edge(idx, node)
+
+            # After adding the edges, existed nodes may have edges exceed max_connections_per_layer, so shrink them.
+
+        enter_node = self.default_enter_point
+        for graph in reversed(self.graphs[1:]):
+            enter_node, _ = self.search_nn(graph, enter_node, q)
+
+    def search_nn(
+            self,
+            nswg: nx.Graph,
+            enter_node: int,
+            q: np.ndarray,
+        ):
         cur_node = enter_node
         smallest_dist = self._data.distance(q, self.candidate_vectors[enter_node, :])
         count = 1
@@ -47,7 +86,6 @@ class HierarchicalNavigableSmallWorldGraph:
             enter_node: int,
             q: np.ndarray,
             ef: int,
-            k: int,
         ):
         enter_distance = self._data.distance(q, self.candidate_vectors[enter_node, :])[0]
         calculated = 1
@@ -62,7 +100,7 @@ class HierarchicalNavigableSmallWorldGraph:
             cur_largest_dist, _ = results.queue[0]
             cur_largest_dist = -cur_largest_dist
 
-            if cur_largest_dist < cand_smallest_dist:
+            if cand_smallest_dist > cur_largest_dist:
                 break
 
             for neighbor in nswg.neighbor(cand_best_node):
@@ -73,13 +111,24 @@ class HierarchicalNavigableSmallWorldGraph:
                     cur_largest_dist, _ = results.queue[0]
                     cur_largest_dist = -cur_largest_dist
 
-                    if (len(results.queue < ef)) or (cur_dist < cur_largest_dist):
+                    if (len(results.queue) < ef) or (cur_dist < cur_largest_dist):
                         candidates.put((cur_dist, neighbor))
                         results.put((-cur_dist, neighbor))
 
                     if len(results.queue) > ef:
-                        results.get()
+                        results.get()  # pop head
+        return results, calculated
 
+    def search_knn(self, q: np.ndarray, k: int):
+        # enter_node = random.randint(low=0, high=self.candidate_vectors.shape[0])
+        enter_node = self.default_enter_point
+        count = 0
+        for graph in reversed(self.graphs[1:]):
+            enter_node, cur_count = self.search_nn(graph, enter_node, q)
+            count += cur_count
+        results = self.search_layer(self.graphs[0], enter_node, q, ef=10)
+        knn = [results.get()[1] for _ in range(k)]
+        return knn, counts
 
     def fit(self, K, batch_size=1024, learning_rate=3e-4, test_every_updates=1000):
         # Validation
