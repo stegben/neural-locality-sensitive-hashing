@@ -14,7 +14,7 @@ DATA_PATHS = {
     "glove_50": os.environ.get("NLSH_GLOVE_50_PATH"),
     "glove_100": os.environ.get("NLSH_GLOVE_100_PATH"),
     "glove_200": os.environ.get("NLSH_GLOVE_200_PATH"),
-    # TODO: sift
+    "sift": os.environ.get("NLSH_SIFT_PATH"),
 }
 BATCH_SIZE = 2048 * 512
 
@@ -34,7 +34,27 @@ def _cosine_distance(v1, v2):
     return 1 - cosine_similarity
 
 
-def self_get_knn_pt_cosine(vectors, k=100, batch_size=512):
+def _l2(v1, v2):
+    """l2 distance betwenn 2 matrix
+
+    v1: (n, d)
+    v2: (m, d)
+
+    Returns
+    D: (n, m) where D[i, j] is the distance between v1[i, :] and v2[j, :]
+    """
+    v1_norm = v1.pow(2).sum(dim=-1, keepdim=True)
+    v2_norm = v2.pow(2).sum(dim=-1, keepdim=True)
+    result = torch.addmm(
+        v2_norm.transpose(-2, -1),
+        v1,
+        v2.transpose(-2, -1),
+        alpha=-2,
+    ).add_(v1_norm)
+    return result
+
+
+def self_get_knn_pt(vectors, distance_func, k=100, batch_size=512):
     vector_pt = torch.from_numpy(vectors).cuda()
     n = vectors.shape[0]
     knn = np.zeros((n, k), dtype=int)
@@ -43,13 +63,17 @@ def self_get_knn_pt_cosine(vectors, k=100, batch_size=512):
         start = batch_idx * batch_size
         end = (batch_idx + 1) * batch_size
         target = vector_pt[start:end, :]
-        knn[start:end, :] = _cosine_distance(target, vector_pt).topk(k+1, dim=1, largest=False)[1][:, 1:].cpu().numpy()
+        knn[start:end, :] = distance_func(target, vector_pt).topk(k+1, dim=1, largest=False)[1][:, 1:].cpu().numpy()
     return knn
 
 
-def self_get_knn_numpy_l2(vectors, k=1000, batch_size=BATCH_SIZE):
-    # TODO: for SIFT, MNIST, GIST, Fashion-MNIST
-    pass
+DISTANCE_FUNC = {
+    "glove_25": _cosine_distance,
+    "glove_50": _cosine_distance,
+    "glove_100": _cosine_distance,
+    "glove_200": _cosine_distance,
+    "sift": _l2,
+}
 
 
 if __name__ == "__main__":
@@ -61,7 +85,8 @@ if __name__ == "__main__":
     ground_truth = np.array(f_data['neighbors'])
     distances = np.array(f_data['distances'])
 
-    train_knn = self_get_knn_pt_cosine(train_data)
+    distance_func = DISTANCE_FUNC[data_path_key]
+    train_knn = self_get_knn_pt(train_data, distance_func)
 
     preprocessed_path = data_path+'.processed'
     f_preprocessed_data = h5py.File(preprocessed_path, 'w')
@@ -72,3 +97,4 @@ if __name__ == "__main__":
     f_preprocessed_data.create_dataset("distances", data=distances)
 
     f_preprocessed_data.close()
+    f_data.close()
