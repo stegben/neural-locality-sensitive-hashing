@@ -6,13 +6,13 @@ import torch.nn.functional as F
 
 class TwoLayer256Relu(nn.Module):
 
-    def __init__(self, input_dim: int):
+    def __init__(self, input_dim: int, with_bias=True):
         super().__init__()
         self._input_dim = input_dim
         self.output_dim = 256
 
-        self.fc1 = nn.Linear(input_dim, 256)
-        self.fc2 = nn.Linear(256, self.output_dim)
+        self.fc1 = nn.Linear(input_dim, 256, bias=with_bias)
+        self.fc2 = nn.Linear(256, self.output_dim, bias=with_bias)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -22,7 +22,13 @@ class TwoLayer256Relu(nn.Module):
 
 class MultiLayerRelu(nn.Sequential):
 
-    def __init__(self, input_dim, hidden_dims: List[int], with_batchnorm=False):
+    def __init__(
+            self,
+            input_dim,
+            hidden_dims: List[int],
+            with_batchnorm=False,
+            with_bias=True,
+        ):
         super().__init__()
         self._input_dim = input_dim
         self._hidden_dims = hidden_dims
@@ -31,7 +37,14 @@ class MultiLayerRelu(nn.Sequential):
 
         prev_dim = input_dim
         for layer_idx, dim in enumerate(hidden_dims):
-            self.add_module(f"{layer_idx}_linear", nn.Linear(prev_dim, dim))
+            self.add_module(
+                f"{layer_idx}_linear",
+                nn.Linear(
+                    prev_dim,
+                    dim,
+                    bias=with_bias,
+                ),
+            )
             if with_batchnorm:
                 self.add_module(f"{layer_idx}_batch_norm", nn.BatchNorm1d(dim))
             self.add_module(f"{layer_idx}_relu", nn.ReLU())
