@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from encoders import MultiLayerRelu
 import nlsh
 from nlsh.hashings import MultivariateBernoulli, Categorical
-from nlsh.data import Glove
+from nlsh.data import Glove, SIFT
 from nlsh.loggers import TensorboardX, CometML, WandB, NullLogger
 from nlsh.trainers import (
     TripletTrainer,
@@ -17,6 +17,7 @@ from nlsh.trainers import (
     VQVAE,
     ProposedTrainer,
     AE,
+    HierarchicalNavigableSmallWorldGraph,
 )
 
 from nlsh.learning.distances import (
@@ -44,9 +45,12 @@ def get_data_by_id(data_id):
         assert glove_dim in ["25", "50", "100", "200"]
         path = os.environ.get(f"NLSH_PROCESSED_GLOVE_{glove_dim}_PATH")
 
-        unit_norm = True if "norm" in data_id else False
-        unit_ball = True if "sphere" in data_id else False
+        unit_norm = "norm" in data_id
+        unit_ball = "sphere" in data_id
         return Glove(path, unit_norm, unit_ball)
+    elif data_setting[0] == "sift":
+        path = os.environ.get(f"NLSH_PROCESSED_GLOVE_{glove_dim}_PATH")
+        return SIFT(path, unit_norm="norm" in data_id)
     raise RuntimeError
 
 
@@ -248,6 +252,14 @@ def get_learner_from_args(args, hashing, data, logger):
             MODEL_SAVE_DIR,
             logger=logger,
         )
+    elif args.learner_type == "hnsw":
+        logger.meta(params={
+            "learner_type": "hnsw",
+        })
+        learner = HierarchicalNavigableSmallWorldGraph(
+            data,
+            logger=logger,
+        )
     return learner
 
 
@@ -296,7 +308,7 @@ def nlsh_argparse():
     )
     parser.add_argument(
         "--learner_type",
-        choices=("triplet", "siamese", "vqvae", "proposed", "ae"),
+        choices=("triplet", "siamese", "vqvae", "proposed", "ae", "hnsw"),
     )
     parser.add_argument(
         "-tm",
