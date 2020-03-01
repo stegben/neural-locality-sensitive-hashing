@@ -49,7 +49,7 @@ def get_data_by_id(data_id):
         unit_ball = "sphere" in data_id
         return Glove(path, unit_norm, unit_ball)
     elif data_setting[0] == "sift":
-        path = os.environ.get(f"NLSH_PROCESSED_GLOVE_{glove_dim}_PATH")
+        path = os.environ.get(f"NLSH_PROCESSED_SIFT_PATH")
         return SIFT(path, unit_norm="norm" in data_id)
     raise RuntimeError
 
