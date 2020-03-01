@@ -198,7 +198,7 @@ class SIFT:
         Returns
         D: (n) where D[i] is the distance between v1 and v2[i, :]
         """
-        return F.pairwise_distance(v1, v2, dim=-1)
+        return F.pairwise_distance(v1, v2)
 
 
 class BigANN1B:
