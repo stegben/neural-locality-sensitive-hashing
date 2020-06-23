@@ -6,7 +6,7 @@ import random
 
 from dotenv import load_dotenv
 
-from encoders import MultiLayerRelu
+from encoders import MultiLayerRelu, Siren
 import nlsh
 from nlsh.hashings import MultivariateBernoulli, Categorical
 from nlsh.data import Glove, SIFT
@@ -384,7 +384,8 @@ def main():
     data = get_data_by_id(args.data_id)
     data.load()
     print("=== prepare encoder ===")
-    enc = MultiLayerRelu(
+    # enc = MultiLayerRelu(
+    enc = Siren(
         input_dim=data.dim,
         hidden_dims=args.encoder_structure,
     ).cuda()

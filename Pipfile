@@ -16,6 +16,7 @@ tensorboardx = "*"
 tqdm = "*"
 comet-ml = "*"
 wandb = "*"
+siren-torch = "*"
 
 [requires]
 python_version = "3.6"

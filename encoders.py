@@ -2,6 +2,7 @@ from typing import List
 
 import torch.nn as nn
 import torch.nn.functional as F
+from siren import SIREN
 
 
 class TwoLayer256Relu(nn.Module):
@@ -49,6 +50,30 @@ class MultiLayerRelu(nn.Sequential):
                 self.add_module(f"{layer_idx}_batch_norm", nn.BatchNorm1d(dim))
             self.add_module(f"{layer_idx}_relu", nn.ReLU())
             prev_dim = dim
+
+    def forward(self, x):
+        return super().forward(x)
+
+
+class Siren(nn.Sequential):
+
+    def __init__(
+            self,
+            input_dim,
+            hidden_dims: List[int],
+            with_batchnorm=False,
+            with_bias=True,
+        ):
+        super().__init__()
+        self._input_dim = input_dim
+        self._hidden_dims = hidden_dims
+
+        self.output_dim = hidden_dims[-1]
+        self.add_module('SIREN', SIREN(
+            self._hidden_dims[:-1],
+            self._input_dim,
+            self.output_dim,
+        ))
 
     def forward(self, x):
         return super().forward(x)
